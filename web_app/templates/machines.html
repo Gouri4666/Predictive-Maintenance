@@ -1,0 +1,421 @@
+{% extends 'base.html' %}
+
+{% block title %}CNC Machines & Prediction History{% endblock %}
+{% block page_title %}CNC Machines & Operational History{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-secondary mb-0">
+        Monitor registered CNC machines, filter machine fleet, and inspect real-time sensor telemetry and ML prediction history.
+    </p>
+</div>
+
+<!-- QUICK ADD CNC MACHINE -->
+<div class="custom-card mb-4">
+    <div class="custom-card-header">
+        <h3 class="custom-card-title fs-6">
+            <i class="bi bi-plus-circle-fill text-primary"></i> Register New CNC Machine
+        </h3>
+        <span class="badge bg-light text-secondary border">Single Identifier Tracking</span>
+    </div>
+    <div class="custom-card-body p-3">
+        <form method="POST" action="{{ url_for('machines.list_machines') }}" class="row g-2 align-items-center">
+            <div class="col-12 col-md-8 col-lg-9">
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-upc-scan"></i></span>
+                    <input type="text" class="form-control font-monospace" id="machine_code" name="machine_code"
+                           placeholder="Enter Machine ID (e.g. CNC-001, CNC-002)..."
+                           required style="text-transform: uppercase;">
+                </div>
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+                <button type="submit" class="btn btn-primary-industrial w-100">
+                    <i class="bi bi-plus-lg me-1"></i> Add Machine
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- FILTER & CONTROL BAR -->
+<div class="custom-card mb-4">
+    <div class="custom-card-header">
+        <h3 class="custom-card-title fs-6">
+            <i class="bi bi-funnel-fill text-primary"></i> Machine Filter & Fleet Search
+        </h3>
+        <span class="badge bg-light text-secondary border">
+            {{ machines|length }} Machines · {{ all_predictions|length }} Total Logs
+        </span>
+    </div>
+    <div class="custom-card-body p-3">
+        <div class="row g-2 align-items-center">
+            <!-- Dropdown Filter: Select Machine -->
+            <div class="col-12 col-md-4">
+                <label for="machineFilterSelect" class="form-label small text-secondary fw-semibold mb-1">Filter by Machine:</label>
+                <select class="form-select font-monospace" id="machineFilterSelect">
+                    <option value="all">-- All Machines (Fleet Overview) --</option>
+                    {% for m in machines %}
+                        <option value="{{ m.machine_code }}" data-id="{{ m.id }}" {% if selected_machine_id == m.id %}selected{% endif %}>
+                            {{ m.machine_code }} ({{ m.status }} - {{ m.prediction_count }} logs)
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="col-6 col-md-3">
+                <label for="statusFilterSelect" class="form-label small text-secondary fw-semibold mb-1">Machine Status:</label>
+                <select class="form-select" id="statusFilterSelect">
+                    <option value="all">All Statuses</option>
+                    <option value="Healthy">Healthy</option>
+                    <option value="At Risk">At Risk</option>
+                    <option value="Critical">Critical / Failure</option>
+                </select>
+            </div>
+
+            <!-- Search by ID -->
+            <div class="col-6 col-md-3">
+                <label for="searchMachineInput" class="form-label small text-secondary fw-semibold mb-1">Search Machine ID:</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-start-0" id="searchMachineInput" placeholder="e.g. CNC-001...">
+                </div>
+            </div>
+
+            <!-- Reset Button -->
+            <div class="col-12 col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-secondary w-100 mt-md-4" id="resetFiltersBtn">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 1: CNC MACHINE FLEET REGISTRY -->
+<div class="custom-card mb-4">
+    <div class="custom-card-header">
+        <h3 class="custom-card-title fs-6">
+            <i class="bi bi-cpu-fill text-primary"></i> Registered CNC Machines
+        </h3>
+        <span class="badge bg-light text-secondary border">{{ machines|length }} Registered Units</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table custom-table mb-0" id="machinesTable">
+            <thead>
+                <tr>
+                    <th>Machine ID</th>
+                    <th>Current Status</th>
+                    <th>Latest Prediction</th>
+                    <th>Evaluation History</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in machines %}
+                <tr class="machine-row" id="row-{{ m.machine_code }}" data-code="{{ m.machine_code|lower }}" data-status="{{ m.status }}" data-id="{{ m.id }}">
+                    <td>
+                        <span class="badge bg-dark font-monospace px-3 py-2 fs-6">{{ m.machine_code }}</span>
+                    </td>
+                    <td>
+                        {% if m.status == 'Healthy' %}
+                            <span class="badge-status badge-healthy"><i class="bi bi-check-circle-fill"></i> Healthy</span>
+                        {% elif m.status == 'At Risk' %}
+                            <span class="badge-status badge-atrisk"><i class="bi bi-exclamation-triangle-fill"></i> At Risk</span>
+                        {% else %}
+                            <span class="badge-status badge-critical"><i class="bi bi-fire"></i> Critical</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.last_probability is not none %}
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold font-monospace {% if m.last_risk == 'High Risk' %}text-danger{% elif m.last_risk == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
+                                    {{ m.last_probability }}%
+                                </span>
+                                <span class="badge {% if m.last_prediction == 1 %}bg-danger-subtle text-danger border-danger-subtle{% else %}bg-success-subtle text-success border-success-subtle{% endif %} border small">
+                                    {% if m.last_prediction == 1 %}Likely to Fail{% else %}Normal{% endif %}
+                                </span>
+                            </div>
+                            <div class="small text-muted">{{ m.last_prediction_at.strftime('%Y-%m-%d %H:%M') if m.last_prediction_at else '' }}</div>
+                        {% else %}
+                            <span class="text-muted small">Not evaluated yet</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!-- Dropdown toggle button for expanding machine history -->
+                        <button class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#historyCollapse-{{ m.id }}"
+                                aria-expanded="{% if selected_machine_id == m.id %}true{% else %}false{% endif %}"
+                                aria-controls="historyCollapse-{{ m.id }}">
+                            <i class="bi bi-chevron-down"></i>
+                            <span>History & Analysis ({{ m.prediction_count }})</span>
+                        </button>
+                    </td>
+                    <td class="text-end">
+                        <div class="btn-group">
+                            <a href="{{ url_for('prediction.predict', machine_id=m.id) }}" class="btn btn-sm btn-primary-industrial" title="Predict Failure">
+                                <i class="bi bi-lightning-charge-fill me-1"></i> Predict
+                            </a>
+                            <form action="{{ url_for('machines.delete_machine', machine_id=m.id) }}" method="POST" class="d-inline confirm-delete" onsubmit="return confirm('Delete machine {{ m.machine_code }} and all its historical records?');">
+                                <button type="submit" class="btn btn-sm btn-light border text-danger" title="Delete Machine">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- INLINE COLLAPSIBLE DROPDOWN: MACHINE HISTORY & ANALYSIS TABLE -->
+                <tr class="collapse-row-wrapper">
+                    <td colspan="5" class="p-0 border-0">
+                        <div class="collapse {% if selected_machine_id == m.id %}show{% endif %} bg-light p-3 border-bottom" id="historyCollapse-{{ m.id }}">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="fw-bold text-dark small">
+                                    <i class="bi bi-clock-history text-primary me-1"></i> Historical Sensor Telemetry & Analysis — 
+                                    <span class="font-monospace text-primary">{{ m.machine_code }}</span>
+                                </div>
+                                <span class="badge bg-white text-secondary border small">
+                                    {{ (predictions_by_machine.get(m.id, [])|length) }} Recorded Tests
+                                </span>
+                            </div>
+
+                            {% if predictions_by_machine.get(m.id) %}
+                            <div class="table-responsive bg-white rounded border">
+                                <table class="table table-sm custom-table mb-0">
+                                    <thead>
+                                        <tr class="table-light">
+                                            <th>Date & Time</th>
+                                            <th>Vibration RMS</th>
+                                            <th>Motor Temp</th>
+                                            <th>Phase Current</th>
+                                            <th>Pressure</th>
+                                            <th>Spindle RPM</th>
+                                            <th>Predicted Outcome</th>
+                                            <th>Probability</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for rec in predictions_by_machine[m.id] %}
+                                        <tr>
+                                            <td class="small text-muted">{{ rec.created_at.strftime('%Y-%m-%d %H:%M') if rec.created_at else '' }}</td>
+                                            <td><span class="sensor-mono">{{ rec.vibration_rms }}</span> <small class="text-muted">mm/s</small></td>
+                                            <td><span class="sensor-mono">{{ rec.temperature_motor }}</span> <small class="text-muted">°C</small></td>
+                                            <td><span class="sensor-mono">{{ rec.current_phase_avg }}</span> <small class="text-muted">A</small></td>
+                                            <td><span class="sensor-mono">{{ rec.pressure_level }}</span> <small class="text-muted">bar</small></td>
+                                            <td><span class="sensor-mono">{{ rec.rpm|round|int }}</span> <small class="text-muted">RPM</small></td>
+                                            <td>
+                                                <span class="badge {% if rec.prediction == 1 %}bg-danger-subtle text-danger border-danger-subtle{% else %}bg-success-subtle text-success border-success-subtle{% endif %} border small">
+                                                    {% if rec.prediction == 1 %}Likely to Fail{% else %}Normal{% endif %}
+                                                </span>
+                                            </td>
+                                            <td class="font-monospace fw-bold {% if rec.risk_level == 'High Risk' %}text-danger{% elif rec.risk_level == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
+                                                {{ rec.failure_probability }}%
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="{{ url_for('prediction.prediction_result', pred_id=rec.id) }}" class="btn btn-xs btn-outline-secondary py-0 px-2" title="View Full Report">
+                                                    <i class="bi bi-eye"></i> View
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="p-3 bg-white rounded border text-center text-muted small">
+                                <i class="bi bi-info-circle me-1"></i> No prediction telemetry recorded yet for <strong>{{ m.machine_code }}</strong>.
+                                <a href="{{ url_for('prediction.predict', machine_id=m.id) }}" class="text-decoration-none ms-2 text-primary fw-medium">Run first inspection &rarr;</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <div class="py-4">
+                            <i class="bi bi-cpu text-muted" style="font-size: 3rem;"></i>
+                            <h5 class="fw-bold mt-3 mb-1" style="color: #0f172a;">No CNC machines registered yet.</h5>
+                            <p class="text-secondary small mb-0">Use the registration card above to add your first machine (e.g. <code>CNC-001</code>).</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECTION 2: UNIFIED MASTER PREDICTION HISTORY & TELEMETRY LOG -->
+<div class="custom-card mb-4" id="historySection">
+    <div class="custom-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <h3 class="custom-card-title fs-6 mb-0">
+                <i class="bi bi-table text-primary"></i> Master Prediction History & Telemetry Analysis Log
+            </h3>
+            <span class="small text-muted" id="activeFilterBadge">Showing all machines</span>
+        </div>
+        <span class="badge bg-light text-secondary border" id="historyRecordsCount">
+            {{ all_predictions|length }} Total Records
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table custom-table mb-0" id="masterHistoryTable">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Machine ID</th>
+                    <th>Vibration RMS</th>
+                    <th>Motor Temp</th>
+                    <th>Phase Current</th>
+                    <th>Pressure</th>
+                    <th>Spindle RPM</th>
+                    <th>Failure Outcome</th>
+                    <th>Probability</th>
+                    <th class="text-end">Diagnostics</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in all_predictions %}
+                <tr class="history-item-row" data-code="{{ p.machine_code|lower }}" data-status="{{ p.risk_level }}">
+                    <td class="small text-muted">{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }}</td>
+                    <td>
+                        <span class="badge bg-dark font-monospace">{{ p.machine_code }}</span>
+                    </td>
+                    <td><span class="sensor-mono">{{ p.vibration_rms }}</span> <small class="text-muted">mm/s</small></td>
+                    <td><span class="sensor-mono">{{ p.temperature_motor }}</span> <small class="text-muted">°C</small></td>
+                    <td><span class="sensor-mono">{{ p.current_phase_avg }}</span> <small class="text-muted">A</small></td>
+                    <td><span class="sensor-mono">{{ p.pressure_level }}</span> <small class="text-muted">bar</small></td>
+                    <td><span class="sensor-mono">{{ p.rpm|round|int }}</span> <small class="text-muted">RPM</small></td>
+                    <td>
+                        <span class="badge {% if p.prediction == 1 %}bg-danger-subtle text-danger border-danger-subtle{% else %}bg-success-subtle text-success border-success-subtle{% endif %} border small">
+                            {% if p.prediction == 1 %}Likely to Fail{% else %}Normal{% endif %}
+                        </span>
+                    </td>
+                    <td class="font-monospace fw-bold {% if p.risk_level == 'High Risk' %}text-danger{% elif p.risk_level == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
+                        {{ p.failure_probability }}%
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('prediction.prediction_result', pred_id=p.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2" title="Inspect Full Diagnostic">
+                            <i class="bi bi-eye"></i> View Result
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr id="emptyHistoryRow">
+                    <td colspan="10" class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        No telemetry or prediction logs found in the database.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Unified Filter Logic across Machines & History Table
+    const machineSelect = document.getElementById('machineFilterSelect');
+    const statusSelect = document.getElementById('statusFilterSelect');
+    const searchInput = document.getElementById('searchMachineInput');
+    const resetBtn = document.getElementById('resetFiltersBtn');
+
+    const machineRows = document.querySelectorAll('.machine-row');
+    const historyRows = document.querySelectorAll('.history-item-row');
+    const activeFilterBadge = document.getElementById('activeFilterBadge');
+    const historyCountBadge = document.getElementById('historyRecordsCount');
+
+    function applyFilters() {
+        const selectedMachine = machineSelect.value.toLowerCase().trim();
+        const selectedStatus = statusSelect.value;
+        const searchQuery = searchInput.value.toLowerCase().trim();
+
+        // 1. Filter Machine Fleet Table
+        machineRows.forEach(row => {
+            const code = row.getAttribute('data-code') || '';
+            const status = row.getAttribute('data-status') || '';
+            const collapseTarget = document.querySelector(row.querySelector('[data-bs-target]').getAttribute('data-bs-target'));
+
+            const matchesMachine = (selectedMachine === 'all' || code === selectedMachine);
+            const matchesStatus = (selectedStatus === 'all' || status === selectedStatus);
+            const matchesSearch = (!searchQuery || code.includes(searchQuery));
+
+            if (matchesMachine && matchesStatus && matchesSearch) {
+                row.style.display = '';
+                // If a single machine is selected, automatically expand its history dropdown
+                if (selectedMachine !== 'all' && collapseTarget && typeof bootstrap !== 'undefined') {
+                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseTarget, { toggle: false });
+                    bsCollapse.show();
+                }
+            } else {
+                row.style.display = 'none';
+                if (collapseTarget && typeof bootstrap !== 'undefined') {
+                    const bsCollapse = bootstrap.Collapse.getInstance(collapseTarget);
+                    if (bsCollapse) bsCollapse.hide();
+                }
+            }
+        });
+
+        // 2. Filter Master History Table
+        let visibleHistoryCount = 0;
+        historyRows.forEach(row => {
+            const code = row.getAttribute('data-code') || '';
+            const status = row.getAttribute('data-status') || '';
+
+            const matchesMachine = (selectedMachine === 'all' || code === selectedMachine);
+            const matchesSearch = (!searchQuery || code.includes(searchQuery));
+
+            let matchesStatus = true;
+            if (selectedStatus === 'Healthy' && status !== 'Low Risk') matchesStatus = false;
+            if (selectedStatus === 'At Risk' && status !== 'Medium Risk') matchesStatus = false;
+            if (selectedStatus === 'Critical' && status !== 'High Risk') matchesStatus = false;
+
+            if (matchesMachine && matchesSearch && matchesStatus) {
+                row.style.display = '';
+                visibleHistoryCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Update active badge text
+        if (selectedMachine !== 'all') {
+            activeFilterBadge.textContent = 'Filtered to Machine: ' + machineSelect.value;
+        } else if (searchQuery) {
+            activeFilterBadge.textContent = 'Search results for: "' + searchQuery + '"';
+        } else {
+            activeFilterBadge.textContent = 'Showing all machines';
+        }
+
+        if (historyCountBadge) {
+            historyCountBadge.textContent = visibleHistoryCount + ' Records';
+        }
+    }
+
+    if (machineSelect) machineSelect.addEventListener('change', applyFilters);
+    if (statusSelect) statusSelect.addEventListener('change', applyFilters);
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            if (machineSelect) machineSelect.value = 'all';
+            if (statusSelect) statusSelect.value = 'all';
+            if (searchInput) searchInput.value = '';
+            applyFilters();
+        });
+    }
+
+    // Run on initial load if query parameter was set
+    document.addEventListener('DOMContentLoaded', function() {
+        if (machineSelect && machineSelect.value !== 'all') {
+            applyFilters();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+
+{% block title %}Prediction History{% endblock %}
+{% block breadcrumb %}Diagnostics / Prediction History{% endblock %}
+{% block page_title %}Prediction History{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <p class="text-secondary mb-0">
+        Review previous CNC machine failure predictions and inspect recorded operating telemetry parameters.
+    </p>
+</div>
+
+<!-- Filters Bar -->
+<div class="custom-card mb-4">
+    <div class="custom-card-body p-3">
+        <form method="GET" action="{{ url_for('history.history_list') }}" class="row g-2 align-items-center">
+            <!-- Search Machine ID -->
+            <div class="col-12 col-md-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-start-0" name="search" placeholder="Search Machine ID..." value="{{ search }}">
+                </div>
+            </div>
+
+            <!-- Prediction Outcome Filter -->
+            <div class="col-6 col-md-2">
+                <select class="form-select" name="outcome">
+                    <option value="">Prediction: All</option>
+                    <option value="1" {% if outcome_filter == '1' %}selected{% endif %}>Failure Predicted</option>
+                    <option value="0" {% if outcome_filter == '0' %}selected{% endif %}>No Failure</option>
+                </select>
+            </div>
+
+            <!-- Risk Filter -->
+            <div class="col-6 col-md-2">
+                <select class="form-select" name="risk">
+                    <option value="">Risk: All</option>
+                    <option value="Low Risk" {% if risk_filter == 'Low Risk' %}selected{% endif %}>Low</option>
+                    <option value="Medium Risk" {% if risk_filter == 'Medium Risk' %}selected{% endif %}>Medium</option>
+                    <option value="High Risk" {% if risk_filter == 'High Risk' %}selected{% endif %}>High</option>
+                </select>
+            </div>
+
+            <!-- Machine ID Selector -->
+            <div class="col-6 col-md-3">
+                <select class="form-select" name="machine_id">
+                    <option value="">All Machine IDs</option>
+                    {% for m in all_machines %}
+                        <option value="{{ m.id }}" {% if machine_id == m.id|string %}selected{% endif %}>{{ m.machine_code }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Submit Filter -->
+            <div class="col-6 col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary-industrial w-100">
+                    <i class="bi bi-funnel-fill me-1"></i> Apply
+                </button>
+                {% if search or risk_filter or outcome_filter != '' or machine_id %}
+                    <a href="{{ url_for('history.history_list') }}" class="btn btn-outline-secondary" title="Reset Filters">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- History Records Table -->
+<div class="custom-card mb-4">
+    <div class="custom-card-header">
+        <h3 class="custom-card-title">
+            <i class="bi bi-clock-history text-primary"></i> Machine Failure Predictions
+        </h3>
+        <span class="badge bg-light text-secondary border">Showing {{ predictions|length }} of {{ total_records }} Total</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table custom-table table-hover align-middle mb-0" id="historyTable">
+            <thead>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Machine ID</th>
+                    <th>Prediction</th>
+                    <th>Probability</th>
+                    <th>Risk</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in predictions %}
+                <tr class="history-row {% if selected_record and selected_record.id == p.id %}table-active{% endif %}" 
+                    style="cursor: pointer;"
+                    data-id="{{ p.id }}"
+                    data-machine="{{ p.machine_code }}"
+                    data-date="{{ p.created_at.strftime('%d %B %Y, %H:%M') if p.created_at else '' }}"
+                    data-pred="{{ p.prediction }}"
+                    data-prob="{{ p.failure_probability }}"
+                    data-risk="{{ p.risk_level }}"
+                    data-vibration="{{ p.vibration_rms }}"
+                    data-temp="{{ p.temperature_motor }}"
+                    data-current="{{ p.current_phase_avg }}"
+                    data-pressure="{{ p.pressure_level }}"
+                    data-rpm="{{ p.rpm|round|int }}"
+                    data-rec="{{ p.recommendation }}">
+                    <td>
+                        <span class="text-dark fw-medium">{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-dark font-monospace px-2 py-1 fs-6">{{ p.machine_code }}</span>
+                    </td>
+                    <td>
+                        {% if p.prediction == 1 %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-bold">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> FAILURE
+                            </span>
+                        {% else %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold">
+                                <i class="bi bi-check2 me-1"></i> NO FAILURE
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="fw-bold font-monospace {% if p.risk_level == 'High Risk' %}text-danger{% elif p.risk_level == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
+                            {{ p.failure_probability }}%
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge-status {% if p.risk_level == 'High Risk' %}badge-critical{% elif p.risk_level == 'Medium Risk' %}badge-atrisk{% else %}badge-healthy{% endif %}">
+                            {{ p.risk_level }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-3">
+                            <i class="bi bi-eye me-1"></i> View Details
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="py-4">
+                            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                            <h5 class="fw-bold mt-3 mb-1" style="color: #0f172a;">No predictions available yet.</h5>
+                            <p class="text-secondary small mb-3">Run your first machine prediction to see results here.</p>
+                            <a href="{{ url_for('prediction.predict') }}" class="btn btn-primary-industrial btn-sm">
+                                <i class="bi bi-lightning-charge-fill me-1"></i> Predict Failure
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    {% if total_pages > 1 %}
+    <div class="custom-card-body border-top py-3 d-flex align-items-center justify-content-between">
+        <div class="small text-muted">
+            Page {{ page }} of {{ total_pages }} ({{ total_records }} Total Inferences)
+        </div>
+        <nav aria-label="Page navigation">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('history.history_list', page=page-1, search=search, risk=risk_filter, outcome=outcome_filter, machine_id=machine_id) }}">Previous</a>
+                </li>
+                {% for p_num in range(1, total_pages + 1) %}
+                    {% if p_num == page or (p_num >= page - 2 and p_num <= page + 2) %}
+                        <li class="page-item {% if p_num == page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('history.history_list', page=p_num, search=search, risk=risk_filter, outcome=outcome_filter, machine_id=machine_id) }}">{{ p_num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('history.history_list', page=page+1, search=search, risk=risk_filter, outcome=outcome_filter, machine_id=machine_id) }}">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- PREDICTION DETAILS (DISPLAYED DIRECTLY BELOW TABLE ON CLICK) -->
+<div id="detailsSection" class="custom-card mb-4" {% if not selected_record %}style="display: none;"{% endif %}>
+    <div class="custom-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h3 class="custom-card-title">
+            <i class="bi bi-file-earmark-medical-fill text-primary"></i> 
+            Prediction Details — <span id="detailMachineCode" class="font-monospace">{{ selected_record.machine_code if selected_record else '' }}</span>
+        </h3>
+        <span class="text-secondary small" id="detailTimestamp">{{ selected_record.created_at.strftime('%d %B %Y, %H:%M') if selected_record and selected_record.created_at else '' }}</span>
+    </div>
+    <div class="custom-card-body">
+        <div class="row g-4">
+            <!-- Left Info Column -->
+            <div class="col-12 col-md-4">
+                <div class="p-3 rounded border text-center mb-3" id="detailOutcomeBox">
+                    <div class="small text-secondary fw-semibold text-uppercase mb-1">Diagnostic Classification</div>
+                    <h4 class="fw-bold mb-1" id="detailPredictionText">
+                        {% if selected_record and selected_record.prediction == 1 %}
+                            FAILURE PREDICTED
+                        {% elif selected_record %}
+                            NO FAILURE PREDICTED
+                        {% endif %}
+                    </h4>
+                    <div class="fs-2 fw-bold font-monospace mb-1" id="detailProbText">
+                        {{ selected_record.failure_probability if selected_record else '' }}%
+                    </div>
+                    <span class="badge-status" id="detailRiskBadge">
+                        {{ selected_record.risk_level if selected_record else '' }}
+                    </span>
+                </div>
+
+                <div class="p-3 bg-light rounded border text-secondary small">
+                    <div class="fw-bold mb-1 text-dark"><i class="bi bi-shield-check me-1 text-primary"></i> Diagnostic Horizon:</div>
+                    <div>24-Hour Predictive Health Assessment</div>
+                </div>
+            </div>
+
+            <!-- Right Telemetry Column -->
+            <div class="col-12 col-md-8">
+                <h6 class="fw-bold text-dark mb-3">Operating Sensor Parameters at Inference</h6>
+                <div class="row g-2 text-center mb-3">
+                    <div class="col-6 col-sm-4">
+                        <div class="p-2 bg-light rounded border">
+                            <span class="small text-muted d-block">Vibration RMS</span>
+                            <span class="fw-bold font-monospace fs-5" id="detailVibration">{{ selected_record.vibration_rms if selected_record else '—' }}</span>
+                            <span class="small text-muted d-block">mm/s</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-4">
+                        <div class="p-2 bg-light rounded border">
+                            <span class="small text-muted d-block">Motor Temp</span>
+                            <span class="fw-bold font-monospace fs-5" id="detailTemp">{{ selected_record.temperature_motor if selected_record else '—' }}</span>
+                            <span class="small text-muted d-block">°C</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-4">
+                        <div class="p-2 bg-light rounded border">
+                            <span class="small text-muted d-block">Phase Current</span>
+                            <span class="fw-bold font-monospace fs-5" id="detailCurrent">{{ selected_record.current_phase_avg if selected_record else '—' }}</span>
+                            <span class="small text-muted d-block">Amperes (A)</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-6">
+                        <div class="p-2 bg-light rounded border">
+                            <span class="small text-muted d-block">Pressure Level</span>
+                            <span class="fw-bold font-monospace fs-5" id="detailPressure">{{ selected_record.pressure_level if selected_record else '—' }}</span>
+                            <span class="small text-muted d-block">bar</span>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <div class="p-2 bg-light rounded border">
+                            <span class="small text-muted d-block">Spindle Speed</span>
+                            <span class="fw-bold font-monospace fs-5" id="detailRpm">{{ selected_record.rpm|round|int if selected_record else '—' }}</span>
+                            <span class="small text-muted d-block">RPM</span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if selected_record and selected_record.recommendation %}
+                <!-- Recommendation box -->
+                <div class="p-3 rounded border bg-light text-dark">
+                    <strong class="d-block mb-1 text-primary"><i class="bi bi-tools me-1"></i> Maintenance Recommendation:</strong>
+                    <span id="detailRec" class="small">{{ selected_record.recommendation }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Clickable table rows to dynamically update details section directly below the table
+    const rows = document.querySelectorAll('.history-row');
+    const detailsSection = document.getElementById('detailsSection');
+    const detailMachineCode = document.getElementById('detailMachineCode');
+    const detailTimestamp = document.getElementById('detailTimestamp');
+    const detailOutcomeBox = document.getElementById('detailOutcomeBox');
+    const detailPredictionText = document.getElementById('detailPredictionText');
+    const detailProbText = document.getElementById('detailProbText');
+    const detailRiskBadge = document.getElementById('detailRiskBadge');
+    const detailVibration = document.getElementById('detailVibration');
+    const detailTemp = document.getElementById('detailTemp');
+    const detailCurrent = document.getElementById('detailCurrent');
+    const detailPressure = document.getElementById('detailPressure');
+    const detailRpm = document.getElementById('detailRpm');
+    const detailRec = document.getElementById('detailRec');
+
+    rows.forEach(row => {
+        row.addEventListener('click', function () {
+            // Remove active class from all rows
+            rows.forEach(r => r.classList.remove('table-active'));
+            this.classList.add('table-active');
+
+            const machine = this.getAttribute('data-machine');
+            const date = this.getAttribute('data-date');
+            const pred = this.getAttribute('data-pred');
+            const prob = this.getAttribute('data-prob');
+            const risk = this.getAttribute('data-risk');
+            const vib = this.getAttribute('data-vibration');
+            const temp = this.getAttribute('data-temp');
+            const cur = this.getAttribute('data-current');
+            const pres = this.getAttribute('data-pressure');
+            const rpm = this.getAttribute('data-rpm');
+            const rec = this.getAttribute('data-rec');
+
+            detailMachineCode.textContent = machine;
+            detailTimestamp.textContent = date;
+            detailProbText.textContent = prob + '%';
+            detailVibration.textContent = vib;
+            detailTemp.textContent = temp;
+            detailCurrent.textContent = cur;
+            detailPressure.textContent = pres;
+            detailRpm.textContent = rpm;
+            detailRec.textContent = rec;
+
+            if (pred === '1') {
+                detailOutcomeBox.className = 'p-3 rounded border text-center mb-3 bg-danger-subtle text-danger border-danger-subtle';
+                detailPredictionText.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> FAILURE PREDICTED';
+                detailProbText.className = 'fs-2 fw-bold font-monospace mb-1 text-danger';
+            } else {
+                detailOutcomeBox.className = 'p-3 rounded border text-center mb-3 bg-success-subtle text-success border-success-subtle';
+                detailPredictionText.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> NO FAILURE PREDICTED';
+                detailProbText.className = 'fs-2 fw-bold font-monospace mb-1 text-success';
+            }
+
+            if (risk === 'High Risk') {
+                detailRiskBadge.className = 'badge-status badge-critical';
+            } else if (risk === 'Medium Risk') {
+                detailRiskBadge.className = 'badge-status badge-atrisk';
+            } else {
+                detailRiskBadge.className = 'badge-status badge-healthy';
+            }
+            detailRiskBadge.textContent = risk;
+
+            detailsSection.style.display = 'block';
+            detailsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    });
+</script>
+{% endblock %}

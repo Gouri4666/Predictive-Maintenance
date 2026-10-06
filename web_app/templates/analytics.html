@@ -1,0 +1,420 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics & Reports{% endblock %}
+{% block breadcrumb %}Analytics & Reports{% endblock %}
+{% block page_title %}Analytics & Reports{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-secondary mb-0">Analyze historical machine prediction telemetry patterns and export audit reports.</p>
+</div>
+
+<!-- 4 KPI SUMMARY CARDS -->
+<div class="row g-4 mb-4">
+    <!-- Card 1: Total Predictions -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title">Total Predictions</span>
+                <div class="stat-icon icon-cyan">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+            </div>
+            <div class="stat-val">{{ totals.total_predictions or 0 }}</div>
+            <p class="stat-sub">Lifetime logged inspections</p>
+        </div>
+    </div>
+
+    <!-- Card 2: Failure Predictions -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title">Failure Predictions</span>
+                <div class="stat-icon icon-red">
+                    <i class="bi bi-fire"></i>
+                </div>
+            </div>
+            <div class="stat-val text-danger">{{ totals.total_failures or 0 }}</div>
+            <p class="stat-sub">Impending breakdown alerts</p>
+        </div>
+    </div>
+
+    <!-- Card 3: No-Failure Predictions -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title">No-Failure Runs</span>
+                <div class="stat-icon icon-green">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+            </div>
+            <div class="stat-val text-success">{{ totals.total_normal or 0 }}</div>
+            <p class="stat-sub">Normal uninterrupted runs</p>
+        </div>
+    </div>
+
+    <!-- Card 4: High-Risk Predictions -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title">High-Risk Predictions</span>
+                <div class="stat-icon icon-amber">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+            </div>
+            <div class="stat-val text-warning">{{ totals.total_high_risk or 0 }}</div>
+            <p class="stat-sub">Probability ≥ 65%</p>
+        </div>
+    </div>
+</div>
+
+<!-- REPORT EXPORTS SECTION (INTEGRATED ON THE SAME PAGE) -->
+<div class="custom-card mb-4">
+    <div class="custom-card-header">
+        <h3 class="custom-card-title">
+            <i class="bi bi-file-earmark-arrow-down-fill text-success"></i> Export Maintenance Reports
+        </h3>
+        <span class="badge bg-light text-secondary border">Direct Downloads</span>
+    </div>
+    <div class="custom-card-body">
+        <div class="row g-4">
+            <!-- Full Audit Export -->
+            <div class="col-12 col-lg-6 border-end-lg">
+                <h6 class="fw-bold text-dark mb-2">Fleet-Wide Prediction Report</h6>
+                <p class="text-secondary small mb-3">Download comprehensive historical inspection records across all registered CNC machines.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('reports.export_csv') }}" class="btn btn-success flex-grow-1">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export Full CSV
+                    </a>
+                    <a href="{{ url_for('reports.print_report') }}" target="_blank" class="btn btn-outline-primary flex-grow-1">
+                        <i class="bi bi-printer me-1"></i> Printable PDF View
+                    </a>
+                </div>
+            </div>
+
+            <!-- Machine Specific Export -->
+            <div class="col-12 col-lg-6">
+                <h6 class="fw-bold text-dark mb-2">Machine-Specific Report</h6>
+                <p class="text-secondary small mb-2">Generate and export report for a single Machine ID.</p>
+                <form method="GET" action="{{ url_for('reports.export_csv') }}" id="reportForm">
+                    <div class="input-group mb-2">
+                        <select class="form-select font-monospace" id="reportMachineSelect" name="machine_id" required>
+                            <option value="" disabled selected>-- Select Machine ID --</option>
+                            {% for m in all_machines %}
+                                <option value="{{ m.id }}">{{ m.machine_code }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-download me-1"></i> CSV
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="btnPdfPrint">
+                            <i class="bi bi-printer me-1"></i> PDF
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not totals.total_predictions or totals.total_predictions == 0 %}
+<div class="custom-card">
+    <div class="custom-card-body text-center py-5">
+        <i class="bi bi-bar-chart text-muted" style="font-size: 3rem;"></i>
+        <h5 class="fw-bold mt-3 mb-1" style="color: #0f172a;">No Analytics Data Available Yet</h5>
+        <p class="text-secondary small mb-3">Run machine predictions to automatically populate trend charts and reliability graphs.</p>
+        <a href="{{ url_for('prediction.predict') }}" class="btn btn-primary-industrial btn-sm">
+            <i class="bi bi-lightning-charge-fill me-1"></i> Predict Failure
+        </a>
+    </div>
+</div>
+{% else %}
+<!-- ROW 1: PREDICTION DISTRIBUTION & RISK DISTRIBUTION CHARTS -->
+<div class="row g-4 mb-4">
+    <!-- Chart 1: Prediction Distribution (Doughnut) -->
+    <div class="col-12 col-lg-6">
+        <div class="custom-card h-100 mb-0">
+            <div class="custom-card-header">
+                <h3 class="custom-card-title">
+                    <i class="bi bi-pie-chart-fill text-primary"></i> Prediction Distribution
+                </h3>
+                <span class="badge bg-light text-secondary border">Outcome Ratio</span>
+            </div>
+            <div class="custom-card-body d-flex flex-column align-items-center justify-content-center">
+                <div style="height: 220px; width: 100%; max-width: 280px;">
+                    <canvas id="predDistChart"></canvas>
+                </div>
+                <div class="d-flex justify-content-center gap-4 mt-3 small">
+                    <div class="d-flex align-items-center gap-2">
+                        <span style="width: 12px; height: 12px; border-radius: 3px; background-color: #ef4444; display: inline-block;"></span>
+                        <span>Failure ({{ totals.total_failures or 0 }})</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span style="width: 12px; height: 12px; border-radius: 3px; background-color: #10b981; display: inline-block;"></span>
+                        <span>No Failure ({{ totals.total_normal or 0 }})</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart 2: Risk Distribution -->
+    <div class="col-12 col-lg-6">
+        <div class="custom-card h-100 mb-0">
+            <div class="custom-card-header">
+                <h3 class="custom-card-title">
+                    <i class="bi bi-bar-chart-steps text-info"></i> Risk Severity Distribution
+                </h3>
+                <span class="badge bg-light text-secondary border">Risk Bands</span>
+            </div>
+            <div class="custom-card-body d-flex flex-column align-items-center justify-content-center">
+                <div style="height: 220px; width: 100%; max-width: 360px;">
+                    <canvas id="riskDistChart"></canvas>
+                </div>
+                <div class="d-flex justify-content-center gap-4 mt-3 small">
+                    <div class="d-flex align-items-center gap-2">
+                        <span style="width: 12px; height: 12px; border-radius: 3px; background-color: #10b981; display: inline-block;"></span>
+                        <span>Low ({{ risk_dict['Low Risk'] }})</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span style="width: 12px; height: 12px; border-radius: 3px; background-color: #f59e0b; display: inline-block;"></span>
+                        <span>Medium ({{ risk_dict['Medium Risk'] }})</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span style="width: 12px; height: 12px; border-radius: 3px; background-color: #ef4444; display: inline-block;"></span>
+                        <span>High ({{ risk_dict['High Risk'] }})</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ROW 2: TIME TREND & MACHINE-WISE FAILURES -->
+<div class="row g-4 mb-4">
+    <!-- Chart 3: Time Trend (Predictions Over Time) -->
+    <div class="col-12 col-lg-7">
+        <div class="custom-card h-100 mb-0">
+            <div class="custom-card-header">
+                <h3 class="custom-card-title">
+                    <i class="bi bi-graph-up text-primary"></i> Predictions Over Time
+                </h3>
+                <span class="badge bg-light text-secondary border">Trend Timeline</span>
+            </div>
+            <div class="custom-card-body">
+                <div style="height: 260px; width: 100%;">
+                    <canvas id="timeTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart 4: Machine Comparison (Machine-wise Predicted Failures) -->
+    <div class="col-12 col-lg-5">
+        <div class="custom-card h-100 mb-0">
+            <div class="custom-card-header">
+                <h3 class="custom-card-title">
+                    <i class="bi bi-bar-chart-fill text-danger"></i> Failures by Machine ID
+                </h3>
+                <span class="badge bg-light text-secondary border">Machine Comparison</span>
+            </div>
+            <div class="custom-card-body">
+                <div style="height: 260px; width: 100%;">
+                    <canvas id="machineFailChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MACHINE PERFORMANCE TABLE -->
+<div class="custom-card mb-0">
+    <div class="custom-card-header">
+        <h3 class="custom-card-title">
+            <i class="bi bi-table text-primary"></i> Machine Reliability Summary
+        </h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table custom-table mb-0">
+            <thead>
+                <tr>
+                    <th>Machine ID</th>
+                    <th>Total Inspections</th>
+                    <th>Predicted Failures</th>
+                    <th>No Failure Runs</th>
+                    <th>Mean Failure Probability</th>
+                    <th>Reliability Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in machine_stats %}
+                <tr>
+                    <td><span class="badge bg-dark font-monospace fs-6">{{ m.machine_code }}</span></td>
+                    <td>{{ m.total_tests }}</td>
+                    <td>
+                        <span class="fw-bold {% if m.failures > 0 %}text-danger{% else %}text-muted{% endif %}">
+                            {{ m.failures or 0 }}
+                        </span>
+                    </td>
+                    <td>{{ m.normal or 0 }}</td>
+                    <td><span class="font-monospace fw-bold">{{ m.avg_prob or 0.0 }}%</span></td>
+                    <td>
+                        {% if m.failures == 0 %}
+                            <span class="badge-status badge-healthy">Optimal</span>
+                        {% elif m.failures == 1 %}
+                            <span class="badge-status badge-atrisk">Moderate Wear</span>
+                        {% else %}
+                            <span class="badge-status badge-critical">Maintenance Required</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // PDF Print handler for single machine
+    const btnPdf = document.getElementById('btnPdfPrint');
+    const machineSelect = document.getElementById('reportMachineSelect');
+    if (btnPdf && machineSelect) {
+        btnPdf.addEventListener('click', function() {
+            const val = machineSelect.value;
+            if (!val) {
+                alert('Please select a Machine ID first.');
+                return;
+            }
+            window.open("{{ url_for('reports.print_report') }}?machine_id=" + val, "_blank");
+        });
+    }
+</script>
+
+{% if totals.total_predictions and totals.total_predictions > 0 %}
+<script>
+    // 1. Prediction Distribution (Doughnut)
+    const ctxPred = document.getElementById('predDistChart');
+    if (ctxPred) {
+        new Chart(ctxPred.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Failure', 'No Failure'],
+                datasets: [{
+                    data: [{{ totals.total_failures or 0 }}, {{ totals.total_normal or 0 }}],
+                    backgroundColor: ['#ef4444', '#10b981'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // 2. Risk Distribution (Bar)
+    const ctxRisk = document.getElementById('riskDistChart');
+    if (ctxRisk) {
+        new Chart(ctxRisk.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Low', 'Medium', 'High'],
+                datasets: [{
+                    label: 'Predictions',
+                    data: [{{ risk_dict['Low Risk'] }}, {{ risk_dict['Medium Risk'] }}, {{ risk_dict['High Risk'] }}],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                    borderRadius: 6,
+                    maxBarThickness: 45
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }
+
+    // 3. Time Trend (Line)
+    const ctxTrend = document.getElementById('timeTrendChart');
+    if (ctxTrend) {
+        const timelineLabels = {{ timeline_labels_json|safe }};
+        const timelineTotals = {{ timeline_totals_json|safe }};
+        const timelineFailures = {{ timeline_failures_json|safe }};
+
+        new Chart(ctxTrend.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: timelineLabels,
+                datasets: [
+                    {
+                        label: 'Total Predictions',
+                        data: timelineTotals,
+                        borderColor: '#0284c7',
+                        backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                        fill: true,
+                        tension: 0.3,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Predicted Failures',
+                        data: timelineFailures,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }
+
+    // 4. Machine Comparison (Bar)
+    const ctxMach = document.getElementById('machineFailChart');
+    if (ctxMach) {
+        const machineLabels = {{ machine_labels_json|safe }};
+        const machineFailures = {{ machine_fail_counts_json|safe }};
+
+        new Chart(ctxMach.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: machineLabels,
+                datasets: [{
+                    label: 'Predicted Failures',
+                    data: machineFailures,
+                    backgroundColor: '#ef4444',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }
+</script>
+{% endif %}
+{% endblock %}

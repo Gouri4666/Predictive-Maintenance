@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+
+{% block title %}CNC Failure Prediction{% endblock %}
+{% block breadcrumb %}Diagnostics / Failure Prediction{% endblock %}
+{% block page_title %}CNC Failure Prediction{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <p class="text-secondary mb-0">
+        Enter current machine operating parameters to estimate the probability of failure within the next 24 hours.
+    </p>
+</div>
+
+{% if not machines %}
+<div class="custom-card">
+    <div class="custom-card-body text-center py-5">
+        <i class="bi bi-exclamation-circle text-warning" style="font-size: 3rem;"></i>
+        <h4 class="fw-bold mt-3 mb-2" style="color: #0f172a;">No CNC Machines Registered Yet</h4>
+        <p class="text-secondary small mb-3">You must register at least one CNC Machine ID before generating predictive telemetry diagnostics.</p>
+        <a href="{{ url_for('machines.list_machines') }}" class="btn btn-primary-industrial">
+            <i class="bi bi-plus-lg me-1"></i> Register Machine First
+        </a>
+    </div>
+</div>
+{% else %}
+<div class="row g-4">
+    <!-- LEFT SIDE: INPUT FORM -->
+    <div class="col-12 col-xl-6">
+        <div class="custom-card mb-0 h-100">
+            <div class="custom-card-header">
+                <h3 class="custom-card-title">
+                    <i class="bi bi-sliders text-primary"></i> Operating Telemetry Inputs
+                </h3>
+            </div>
+            <div class="custom-card-body">
+                <form method="POST" action="{{ url_for('prediction.predict') }}" id="predictionForm">
+                    <!-- Machine Selection -->
+                    <div class="mb-4">
+                        <label for="machine_id" class="form-label fw-bold">Select CNC Machine *</label>
+                        <select class="form-select font-monospace" id="machine_id" name="machine_id" required>
+                            <option value="" disabled {% if not selected_machine_id %}selected{% endif %}>-- Select Machine ID --</option>
+                            {% for m in machines %}
+                                <option value="{{ m.id }}" {% if selected_machine_id == m.id %}selected{% endif %}>
+                                    {{ m.machine_code }} (Status: {{ m.status }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="fw-bold mb-0 text-dark">
+                            <i class="bi bi-activity text-primary me-1"></i> 5 Sensor Operating Parameters
+                        </h6>
+                    </div>
+
+                    <!-- Sensor 1: Vibration RMS -->
+                    <div class="mb-3">
+                        <label for="vibration_rms" class="form-label d-flex justify-content-between">
+                            <span>1. Vibration RMS (`vibration_rms`) *</span>
+                            <span class="text-muted small">Nominal: &lt; 2.5 mm/s</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="number" step="0.01" class="form-control font-monospace" id="vibration_rms" name="vibration_rms"
+                                   placeholder="e.g. 1.25" value="{{ form_data.vibration_rms if form_data else '' }}" required>
+                            <span class="input-group-text input-unit-badge">mm/s</span>
+                        </div>
+                    </div>
+
+                    <!-- Sensor 2: Motor Temperature -->
+                    <div class="mb-3">
+                        <label for="temperature_motor" class="form-label d-flex justify-content-between">
+                            <span>2. Motor Temperature (`temperature_motor`) *</span>
+                            <span class="text-muted small">Nominal: 30–55 °C</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="number" step="0.1" class="form-control font-monospace" id="temperature_motor" name="temperature_motor"
+                                   placeholder="e.g. 42.0" value="{{ form_data.temperature_motor if form_data else '' }}" required>
+                            <span class="input-group-text input-unit-badge">°C</span>
+                        </div>
+                    </div>
+
+                    <!-- Sensor 3: Phase Current -->
+                    <div class="mb-3">
+                        <label for="current_phase_avg" class="form-label d-flex justify-content-between">
+                            <span>3. Phase Current (`current_phase_avg`) *</span>
+                            <span class="text-muted small">Nominal: 5–15 A</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="number" step="0.1" class="form-control font-monospace" id="current_phase_avg" name="current_phase_avg"
+                                   placeholder="e.g. 8.5" value="{{ form_data.current_phase_avg if form_data else '' }}" required>
+                            <span class="input-group-text input-unit-badge">Amperes (A)</span>
+                        </div>
+                    </div>
+
+                    <!-- Sensor 4: Pressure Level -->
+                    <div class="mb-3">
+                        <label for="pressure_level" class="form-label d-flex justify-content-between">
+                            <span>4. Pressure Level (`pressure_level`) *</span>
+                            <span class="text-muted small">Nominal: 45–65 bar</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="number" step="0.1" class="form-control font-monospace" id="pressure_level" name="pressure_level"
+                                   placeholder="e.g. 54.0" value="{{ form_data.pressure_level if form_data else '' }}" required>
+                            <span class="input-group-text input-unit-badge">bar</span>
+                        </div>
+                    </div>
+
+                    <!-- Sensor 5: Rotational Speed (RPM) -->
+                    <div class="mb-4">
+                        <label for="rpm" class="form-label d-flex justify-content-between">
+                            <span>5. Rotational Speed (`rpm`) *</span>
+                            <span class="text-muted small">Nominal: 800–2500 RPM</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="number" step="1" class="form-control font-monospace" id="rpm" name="rpm"
+                                   placeholder="e.g. 1200" value="{{ form_data.rpm if form_data else '' }}" required>
+                            <span class="input-group-text input-unit-badge">RPM</span>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid pt-2">
+                        <button type="submit" id="predictBtn" class="btn btn-primary-industrial py-3 fs-6">
+                            <span id="btnIcon"><i class="bi bi-search me-1"></i></span>
+                            <span id="btnText">Predict Failure</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT SIDE: PREDICTION RESULT DISPLAY -->
+    <div class="col-12 col-xl-6">
+        {% if result %}
+            <!-- RESULT CARD -->
+            <div class="custom-card mb-0 h-100 border-2 {% if result.prediction == 1 %}border-danger{% else %}border-success{% endif %}">
+                <div class="custom-card-header {% if result.prediction == 1 %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
+                    <h3 class="custom-card-title text-white">
+                        {% if result.prediction == 1 %}
+                            <i class="bi bi-exclamation-triangle-fill"></i> FAILURE PREDICTED
+                        {% else %}
+                            <i class="bi bi-check-circle-fill"></i> NO FAILURE PREDICTED
+                        {% endif %}
+                    </h3>
+                    <span class="badge bg-white {% if result.prediction == 1 %}text-danger{% else %}text-success{% endif %} fw-bold">
+                        Machine: {{ result.machine_code }}
+                    </span>
+                </div>
+                <div class="custom-card-body">
+                    <!-- Outcome Banner -->
+                    <div class="p-3 rounded-3 mb-4 {% if result.prediction == 1 %}bg-danger-subtle text-danger border border-danger-subtle{% else %}bg-success-subtle text-success border border-success-subtle{% endif %}">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h4 class="fw-bold mb-0">
+                                {% if result.prediction == 1 %}
+                                    ⚠ Machine Likely to Fail
+                                {% else %}
+                                    ✓ Machine Unlikely to Fail
+                                {% endif %}
+                            </h4>
+                            <span class="badge-status {% if result.risk_level == 'High Risk' %}badge-critical{% elif result.risk_level == 'Medium Risk' %}badge-atrisk{% else %}badge-healthy{% endif %} fs-6">
+                                {{ result.risk_level|upper }}
+                            </span>
+                        </div>
+                        <p class="mb-0 small">
+                            {% if result.prediction == 1 %}
+                                The machine is predicted as likely to experience a failure based on evaluated sensor telemetry.
+                            {% else %}
+                                The machine is predicted as unlikely to fail. Sensor telemetry remains within nominal operating limits.
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <div class="row g-3 mb-4 text-center">
+                        <div class="col-6">
+                            <div class="p-3 bg-light rounded border h-100">
+                                <span class="small text-secondary fw-semibold d-block">Failure Probability</span>
+                                <span class="fs-2 fw-bold font-monospace {% if result.risk_level == 'High Risk' %}text-danger{% elif result.risk_level == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
+                                    {{ result.failure_probability }}%
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 bg-light rounded border h-100">
+                                <span class="small text-secondary fw-semibold d-block">Evaluated Machine ID</span>
+                                <span class="fs-2 fw-bold font-monospace text-dark">
+                                    {{ result.machine_code }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Parameters Summary -->
+                    <h6 class="fw-bold text-dark mb-2">Machine Condition Parameters (Submitted)</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Recorded Value</th>
+                                    <th>Unit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Vibration RMS</td>
+                                    <td class="font-monospace fw-bold">{{ result.inputs.vibration_rms }}</td>
+                                    <td>mm/s</td>
+                                </tr>
+                                <tr>
+                                    <td>Motor Temperature</td>
+                                    <td class="font-monospace fw-bold">{{ result.inputs.temperature_motor }}</td>
+                                    <td>°C</td>
+                                </tr>
+                                <tr>
+                                    <td>Phase Current</td>
+                                    <td class="font-monospace fw-bold">{{ result.inputs.current_phase_avg }}</td>
+                                    <td>A</td>
+                                </tr>
+                                <tr>
+                                    <td>Pressure Level</td>
+                                    <td class="font-monospace fw-bold">{{ result.inputs.pressure_level }}</td>
+                                    <td>bar</td>
+                                </tr>
+                                <tr>
+                                    <td>Spindle Speed (RPM)</td>
+                                    <td class="font-monospace fw-bold">{{ result.inputs.rpm }}</td>
+                                    <td>RPM</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('prediction.predict') }}" class="btn btn-outline-secondary flex-grow-1">
+                            <i class="bi bi-arrow-repeat me-1"></i> Predict Again
+                        </a>
+                        <a href="{{ url_for('machines.list_machines') }}" class="btn btn-primary-industrial flex-grow-1">
+                            <i class="bi bi-clock-history me-1"></i> View Machines & History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- WAITING / READY PLACEHOLDER -->
+            <div class="custom-card mb-0 h-100 d-flex flex-column">
+                <div class="custom-card-header">
+                    <h3 class="custom-card-title text-secondary">
+                        <i class="bi bi-cpu text-primary"></i> Diagnostic Output
+                    </h3>
+                    <span class="badge bg-light text-muted border">Awaiting Input</span>
+                </div>
+                <div class="custom-card-body d-flex flex-column justify-content-center text-center py-5 flex-grow-1">
+                    <div class="mb-3">
+                        <div class="brand-icon-box mx-auto" style="width: 56px; height: 56px; font-size: 1.8rem;">
+                            <i class="bi bi-lightning-charge"></i>
+                        </div>
+                    </div>
+                    <h4 class="fw-bold mb-2" style="color: #0f172a;">Ready for Prediction</h4>
+                    <p class="text-secondary small mb-0 mx-auto" style="max-width: 380px;">
+                        Select a Machine ID on the left, enter the 5 sensor operating parameters, then click <strong>Predict Failure</strong> to generate real-time diagnostic output here.
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Form submission loading state without freezing UI
+    const predForm = document.getElementById('predictionForm');
+    const predBtn = document.getElementById('predictBtn');
+    const btnIcon = document.getElementById('btnIcon');
+    const btnText = document.getElementById('btnText');
+
+    if (predForm && predBtn) {
+        predForm.addEventListener('submit', function() {
+            predBtn.disabled = true;
+            btnIcon.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>';
+            btnText.textContent = 'Analyzing machine condition...';
+            // Allow form to submit normally
+            setTimeout(() => {
+                predForm.submit();
+            }, 50);
+        });
+    }
+</script>
+{% endblock %}

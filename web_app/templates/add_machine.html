@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}Edit CNC Machine{% else %}Add CNC Machine{% endif %}{% endblock %}
+{% block breadcrumb %}Machines / {% if is_edit %}Edit{% else %}Add Machine{% endif %}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Machine{% else %}Add CNC Machine{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="custom-card">
+            <div class="custom-card-header">
+                <h3 class="custom-card-title">
+                    <i class="bi bi-gear-fill text-primary"></i> 
+                    {% if is_edit %}Edit Machine: {{ machine.machine_code }}{% else %}Register CNC Machine{% endif %}
+                </h3>
+                <a href="{{ url_for('machines.list_machines') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Fleet
+                </a>
+            </div>
+            <div class="custom-card-body">
+                <p class="text-secondary small mb-4">
+                    Enter the unique Machine ID (e.g. <code>CNC-001</code>, <code>CNC-002</code>) to track and monitor predictive telemetry.
+                </p>
+
+                <form method="POST">
+                    <!-- Machine ID Input -->
+                    <div class="mb-4">
+                        <label for="machine_code" class="form-label fw-bold">Machine ID *</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-upc-scan"></i></span>
+                            <input type="text" class="form-control font-monospace" id="machine_code" name="machine_code"
+                                   placeholder="e.g. CNC-001"
+                                   value="{{ machine.machine_code if is_edit else (machine_code or '') }}" 
+                                   required autofocus style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-text small text-muted">
+                            Unique alphanumeric identifier used across all sensors and predictions.
+                        </div>
+                    </div>
+
+                    {% if is_edit %}
+                    <!-- Status selector for edit mode -->
+                    <div class="mb-4">
+                        <label for="status" class="form-label fw-bold">Machine Condition Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="Healthy" {% if machine.status == 'Healthy' %}selected{% endif %}>Healthy</option>
+                            <option value="At Risk" {% if machine.status == 'At Risk' %}selected{% endif %}>At Risk</option>
+                            <option value="Critical" {% if machine.status == 'Critical' %}selected{% endif %}>Critical / Failure Predicted</option>
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <!-- Save & Cancel Buttons -->
+                    <div class="d-flex justify-content-end gap-2 pt-2">
+                        <a href="{{ url_for('machines.list_machines') }}" class="btn btn-light border px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary-industrial px-4">
+                            <i class="bi bi-check2 me-1"></i> {% if is_edit %}Update Machine{% else %}Save Machine{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

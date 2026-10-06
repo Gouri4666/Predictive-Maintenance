@@ -1,0 +1,44 @@
+{
+    "model_name": "XGBoost Classifier (SMOTE Balanced)",
+    "algorithm": "xgboost.XGBClassifier",
+    "balancing_strategy": "SMOTE (1:1 class ratio)",
+    "training_samples": 8164,
+    "test_samples": 1188,
+    "features": [
+        "vibration_rms",
+        "temperature_motor",
+        "current_phase_avg",
+        "pressure_level",
+        "rpm"
+    ],
+    "target": "failure_within_24h",
+    "target_classes": {
+        "0": "Normal Operation (No Failure within 24h)",
+        "1": "Warning: Impending Failure Detected (within 24h)"
+    },
+    "hyperparameters": {
+        "n_estimators": 100,
+        "max_depth": 4,
+        "learning_rate": 0.05,
+        "random_state": 42,
+        "eval_metric": "logloss"
+    },
+    "evaluation_metrics": {
+        "train_accuracy": 0.9722,
+        "train_recall": 0.9838,
+        "train_f1_score": 0.9725,
+        "train_roc_auc": 0.9953,
+        "test_accuracy": 0.9419,
+        "test_precision": 0.745,
+        "test_recall": 0.8922,
+        "test_f1_score": 0.812,
+        "test_roc_auc": 0.9826,
+        "missed_failures_fn": 18,
+        "training_time_seconds": 0.2987,
+        "testing_time_ms": 4.0123,
+        "inference_latency_ms_per_sample": 0.00338
+    },
+    "serialization_format": "joblib",
+    "model_file": "champion_model.pkl",
+    "imputer_file": "imputer.pkl"
+}

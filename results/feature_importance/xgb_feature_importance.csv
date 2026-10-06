@@ -1,0 +1,6 @@
+Feature,Importance
+temperature_motor,0.41565886
+rpm,0.32095844
+vibration_rms,0.17095102
+current_phase_avg,0.05142809
+pressure_level,0.04100357
