@@ -41,7 +41,7 @@
                             <option value="" disabled {% if not selected_machine_id %}selected{% endif %}>-- Select Machine ID --</option>
                             {% for m in machines %}
                                 <option value="{{ m.id }}" {% if selected_machine_id == m.id %}selected{% endif %}>
-                                    {{ m.machine_code }} (Status: {{ m.status }})
+                                    {{ m.machine_code }}{% if m.prediction_count > 0 and m.status != 'Not Evaluated' %} (Status: {{ m.status }}){% endif %}
                                 </option>
                             {% endfor %}
                         </select>
@@ -56,8 +56,7 @@
                     <!-- Sensor 1: Vibration RMS -->
                     <div class="mb-3">
                         <label for="vibration_rms" class="form-label d-flex justify-content-between">
-                            <span>1. Vibration RMS (`vibration_rms`) *</span>
-                            <span class="text-muted small">Nominal: &lt; 2.5 mm/s</span>
+                            <span>1. Vibration RMS </span>
                         </label>
                         <div class="input-group">
                             <input type="number" step="0.01" class="form-control font-monospace" id="vibration_rms" name="vibration_rms"
@@ -69,12 +68,11 @@
                     <!-- Sensor 2: Motor Temperature -->
                     <div class="mb-3">
                         <label for="temperature_motor" class="form-label d-flex justify-content-between">
-                            <span>2. Motor Temperature (`temperature_motor`) *</span>
-                            <span class="text-muted small">Nominal: 30–55 °C</span>
+                            <span>2. Motor Temperature</span>
                         </label>
                         <div class="input-group">
-                            <input type="number" step="0.1" class="form-control font-monospace" id="temperature_motor" name="temperature_motor"
-                                   placeholder="e.g. 42.0" value="{{ form_data.temperature_motor if form_data else '' }}" required>
+                            <input type="number" step="0.01" class="form-control font-monospace" id="temperature_motor" name="temperature_motor"
+                                   placeholder="e.g. 42.00" value="{{ form_data.temperature_motor if form_data else '' }}" required>
                             <span class="input-group-text input-unit-badge">°C</span>
                         </div>
                     </div>
@@ -82,12 +80,11 @@
                     <!-- Sensor 3: Phase Current -->
                     <div class="mb-3">
                         <label for="current_phase_avg" class="form-label d-flex justify-content-between">
-                            <span>3. Phase Current (`current_phase_avg`) *</span>
-                            <span class="text-muted small">Nominal: 5–15 A</span>
+                            <span>3. Phase Current</span>
                         </label>
                         <div class="input-group">
-                            <input type="number" step="0.1" class="form-control font-monospace" id="current_phase_avg" name="current_phase_avg"
-                                   placeholder="e.g. 8.5" value="{{ form_data.current_phase_avg if form_data else '' }}" required>
+                            <input type="number" step="0.01" class="form-control font-monospace" id="current_phase_avg" name="current_phase_avg"
+                                   placeholder="e.g. 8.50" value="{{ form_data.current_phase_avg if form_data else '' }}" required>
                             <span class="input-group-text input-unit-badge">Amperes (A)</span>
                         </div>
                     </div>
@@ -95,12 +92,11 @@
                     <!-- Sensor 4: Pressure Level -->
                     <div class="mb-3">
                         <label for="pressure_level" class="form-label d-flex justify-content-between">
-                            <span>4. Pressure Level (`pressure_level`) *</span>
-                            <span class="text-muted small">Nominal: 45–65 bar</span>
+                            <span>4. Pressure Level /span>
                         </label>
                         <div class="input-group">
-                            <input type="number" step="0.1" class="form-control font-monospace" id="pressure_level" name="pressure_level"
-                                   placeholder="e.g. 54.0" value="{{ form_data.pressure_level if form_data else '' }}" required>
+                            <input type="number" step="0.01" class="form-control font-monospace" id="pressure_level" name="pressure_level"
+                                   placeholder="e.g. 54.00" value="{{ form_data.pressure_level if form_data else '' }}" required>
                             <span class="input-group-text input-unit-badge">bar</span>
                         </div>
                     </div>
@@ -108,12 +104,11 @@
                     <!-- Sensor 5: Rotational Speed (RPM) -->
                     <div class="mb-4">
                         <label for="rpm" class="form-label d-flex justify-content-between">
-                            <span>5. Rotational Speed (`rpm`) *</span>
-                            <span class="text-muted small">Nominal: 800–2500 RPM</span>
+                            <span>5. Rotational Speed</span>
                         </label>
                         <div class="input-group">
-                            <input type="number" step="1" class="form-control font-monospace" id="rpm" name="rpm"
-                                   placeholder="e.g. 1200" value="{{ form_data.rpm if form_data else '' }}" required>
+                            <input type="number" step="0.01" class="form-control font-monospace" id="rpm" name="rpm"
+                                   placeholder="e.g. 1200.00" value="{{ form_data.rpm if form_data else '' }}" required>
                             <span class="input-group-text input-unit-badge">RPM</span>
                         </div>
                     </div>
@@ -134,28 +129,32 @@
     <div class="col-12 col-xl-6">
         {% if result %}
             <!-- RESULT CARD -->
-            <div class="custom-card mb-0 h-100 border-2 {% if result.prediction == 1 %}border-danger{% else %}border-success{% endif %}">
-                <div class="custom-card-header {% if result.prediction == 1 %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
-                    <h3 class="custom-card-title text-white">
-                        {% if result.prediction == 1 %}
-                            <i class="bi bi-exclamation-triangle-fill"></i> FAILURE PREDICTED
+            <div class="custom-card mb-0 h-100 border-2 {% if result.risk_level == 'High Risk' %}border-danger{% elif result.risk_level == 'Medium Risk' %}border-warning{% else %}border-success{% endif %}">
+                <div class="custom-card-header {% if result.risk_level == 'High Risk' %}bg-danger text-white{% elif result.risk_level == 'Medium Risk' %}bg-warning text-dark{% else %}bg-success text-white{% endif %}">
+                    <h3 class="custom-card-title {% if result.risk_level == 'Medium Risk' %}text-dark{% else %}text-white{% endif %}">
+                        {% if result.risk_level == 'High Risk' %}
+                            <i class="bi bi-exclamation-triangle-fill"></i> CRITICAL FAILURE RISK
+                        {% elif result.risk_level == 'Medium Risk' %}
+                            <i class="bi bi-exclamation-triangle-fill"></i> MEDIUM FAILURE RISK
                         {% else %}
                             <i class="bi bi-check-circle-fill"></i> NO FAILURE PREDICTED
                         {% endif %}
                     </h3>
-                    <span class="badge bg-white {% if result.prediction == 1 %}text-danger{% else %}text-success{% endif %} fw-bold">
+                    <span class="badge {% if result.risk_level == 'High Risk' %}bg-white text-danger{% elif result.risk_level == 'Medium Risk' %}bg-dark text-warning{% else %}bg-white text-success{% endif %} fw-bold">
                         Machine: {{ result.machine_code }}
                     </span>
                 </div>
                 <div class="custom-card-body">
                     <!-- Outcome Banner -->
-                    <div class="p-3 rounded-3 mb-4 {% if result.prediction == 1 %}bg-danger-subtle text-danger border border-danger-subtle{% else %}bg-success-subtle text-success border border-success-subtle{% endif %}">
+                    <div class="p-3 rounded-3 mb-4 {% if result.risk_level == 'High Risk' %}bg-danger-subtle text-danger border border-danger-subtle{% elif result.risk_level == 'Medium Risk' %}bg-warning-subtle text-warning-emphasis border border-warning-subtle{% else %}bg-success-subtle text-success border border-success-subtle{% endif %}">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h4 class="fw-bold mb-0">
-                                {% if result.prediction == 1 %}
-                                    ⚠ Machine Likely to Fail
+                                {% if result.risk_level == 'High Risk' %}
+                                    ⚠ Critical Failure Likely
+                                {% elif result.risk_level == 'Medium Risk' %}
+                                    ⚠ Moderate Machine Risk
                                 {% else %}
-                                    ✓ Machine Unlikely to Fail
+                                    ✓ Machine is Healthy
                                 {% endif %}
                             </h4>
                             <span class="badge-status {% if result.risk_level == 'High Risk' %}badge-critical{% elif result.risk_level == 'Medium Risk' %}badge-atrisk{% else %}badge-healthy{% endif %} fs-6">
@@ -163,10 +162,12 @@
                             </span>
                         </div>
                         <p class="mb-0 small">
-                            {% if result.prediction == 1 %}
-                                The machine is predicted as likely to experience a failure based on evaluated sensor telemetry.
+                            {% if result.risk_level == 'High Risk' %}
+                                High probability of failure within 24 hours. Immediate machine inspection and shutdown recommended.
+                            {% elif result.risk_level == 'Medium Risk' %}
+                                Readings indicate elevated operational wear or thermal load. Schedule routine maintenance check.
                             {% else %}
-                                The machine is predicted as unlikely to fail. Sensor telemetry remains within nominal operating limits.
+                                Sensor telemetry remains within nominal operating limits. Machine operating normally.
                             {% endif %}
                         </p>
                     </div>
@@ -232,6 +233,90 @@
                         </table>
                     </div>
 
+                    <!-- EXPLAINABLE AI (ALE) ANALYSIS SECTION -->
+                    {% if result.ale %}
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                            <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2 fs-6">
+                                <!-- <span class="badge bg-primary text-white font-monospace">XAI</span> -->
+                                Accumulated Local Effects (ALE) Explanation
+                            </h5>
+                            
+                        </div>
+
+                        <!-- Diagnostic Narrative Box -->
+                        <div class="p-3 bg-light rounded-3 border mb-3">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="bi bi-info-circle-fill text-primary mt-1 fs-5"></i>
+                                <div>
+                                    <span class="fw-bold text-dark d-block mb-1 small text-uppercase">Diagnostic AI Insight</span>
+                                    <p class="small text-secondary mb-0">
+                                        {{ result.ale.explanation_summary }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sensor Feature Contribution Breakdown Table -->
+                        <h6 class="fw-bold text-dark small text-uppercase mb-2">Sensor Impact on Failure Risk (ALE)</h6>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle mb-0 custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sensor</th>
+                                        <th>Recorded</th>
+                                        <th>ALE Risk Effect</th>
+                                        <th>Safety Zone</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for eff in result.ale.feature_effects %}
+                                    <tr>
+                                        <td class="fw-semibold text-dark">
+                                            <i class="bi {{ eff.icon }} text-muted me-1"></i> {{ eff.name }}
+                                        </td>
+                                        <td class="font-monospace">
+                                            {{ eff.value }} <span class="text-muted small">{{ eff.unit }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="font-monospace fw-bold {% if eff.effect > 0.05 %}text-danger{% elif eff.effect > 0 %}text-warning{% elif eff.effect < -0.05 %}text-success{% else %}text-muted{% endif %}">
+                                                {% if eff.effect > 0 %}+{% endif %}{{ eff.effect_pct }}%
+                                            </span>
+                                            <div class="progress mt-1" style="height: 4px; max-width: 90px;">
+                                                {% if eff.effect > 0 %}
+                                                    <div class="progress-bar {% if eff.effect > 0.1 %}bg-danger{% else %}bg-warning{% endif %}" style="width: {{ [eff.effect_pct * 2, 100]|min }}%"></div>
+                                                {% else %}
+                                                    <div class="progress-bar bg-success" style="width: {{ [(-eff.effect_pct) * 2, 100]|min }}%"></div>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge-status {{ eff.badge_class }} small">
+                                                {{ eff.status }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Actionable Prescriptive Guidance -->
+                        {% if result.ale.recommendations %}
+                        <div class="p-3 rounded-3 {% if result.risk_level == 'High Risk' %}bg-danger-subtle border border-danger-subtle{% elif result.risk_level == 'Medium Risk' %}bg-warning-subtle border border-warning-subtle{% else %}bg-success-subtle border border-success-subtle{% endif %} mb-4">
+                            <span class="fw-bold small text-dark d-block mb-1">
+                                <i class="bi bi-wrench-adjustable me-1"></i> Actionable Corrective Advice:
+                            </span>
+                            <ul class="mb-0 small text-secondary ps-3">
+                                {% for rec in result.ale.recommendations %}
+                                    <li>{{ rec }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
                     <!-- Action Buttons -->
                     <div class="d-flex flex-wrap gap-2">
                         <a href="{{ url_for('prediction.predict') }}" class="btn btn-outline-secondary flex-grow-1">
@@ -280,13 +365,11 @@
 
     if (predForm && predBtn) {
         predForm.addEventListener('submit', function() {
-            predBtn.disabled = true;
+            setTimeout(function() {
+                predBtn.disabled = true;
+            }, 0);
             btnIcon.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>';
             btnText.textContent = 'Analyzing machine condition...';
-            // Allow form to submit normally
-            setTimeout(() => {
-                predForm.submit();
-            }, 50);
         });
     }
 </script>

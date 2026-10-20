@@ -40,7 +40,7 @@ def login():
             session['username'] = user['username']
             session['email'] = user['email']
             session['role'] = user['role']
-            flash(f"Welcome back, {user['username']}! Logged in successfully.", 'success')
+
             
             next_url = request.args.get('next')
             return redirect(next_url or url_for('dashboard.index'))

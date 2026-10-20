@@ -10,110 +10,102 @@
     <p class="text-secondary mb-0">Monitor the health and predicted failure status of your CNC machines.</p>
 </div>
 
-<!-- QUICK ACTION BUTTONS -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <a href="{{ url_for('machines.list_machines') }}" class="btn btn-light border w-100 p-3 text-start h-100 d-flex align-items-center gap-3 shadow-sm text-decoration-none">
-            <div class="brand-icon-box bg-primary text-white" style="width: 38px; height: 38px; font-size: 1.1rem; box-shadow: none;">
-                <i class="bi bi-gear-fill"></i>
-            </div>
-            <div>
-                <div class="fw-bold text-dark small">CNC Machines</div>
-                <div class="text-muted" style="font-size: 0.72rem;">Add & manage machine IDs</div>
-            </div>
-        </a>
-    </div>
-    <div class="col-6 col-md-3">
-        <a href="{{ url_for('prediction.predict') }}" class="btn btn-light border w-100 p-3 text-start h-100 d-flex align-items-center gap-3 shadow-sm text-decoration-none">
-            <div class="brand-icon-box bg-primary text-white" style="width: 38px; height: 38px; font-size: 1.1rem; box-shadow: none;">
-                <i class="bi bi-lightning-charge-fill"></i>
-            </div>
-            <div>
-                <div class="fw-bold text-dark small">Predict Failure</div>
-                <div class="text-muted" style="font-size: 0.72rem;">Evaluate 5 sensors</div>
-            </div>
-        </a>
-    </div>
-    <div class="col-6 col-md-3">
-        <a href="{{ url_for('machines.list_machines') }}" class="btn btn-light border w-100 p-3 text-start h-100 d-flex align-items-center gap-3 shadow-sm text-decoration-none">
-            <div class="brand-icon-box bg-secondary text-white" style="width: 38px; height: 38px; font-size: 1.1rem; box-shadow: none;">
-                <i class="bi bi-clock-history"></i>
-            </div>
-            <div>
-                <div class="fw-bold text-dark small">CNC Machines & Logs</div>
-                <div class="text-muted" style="font-size: 0.72rem;">Registry & history</div>
-            </div>
-        </a>
-    </div>
-    <div class="col-6 col-md-3">
-        <a href="{{ url_for('analytics.analytics_dashboard') }}" class="btn btn-light border w-100 p-3 text-start h-100 d-flex align-items-center gap-3 shadow-sm text-decoration-none">
-            <div class="brand-icon-box bg-info text-white" style="width: 38px; height: 38px; font-size: 1.1rem; box-shadow: none;">
-                <i class="bi bi-bar-chart-fill"></i>
-            </div>
-            <div>
-                <div class="fw-bold text-dark small">Analytics & Reports</div>
-                <div class="text-muted" style="font-size: 0.72rem;">Fleet trends & exports</div>
-            </div>
-        </a>
-    </div>
-</div>
 
-<!-- 4 SUMMARY KPI CARDS -->
-<div class="row g-4 mb-4">
-    <!-- Card 1: Total CNC Machines -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card">
+
+<!-- 3 SUMMARY KPI CARDS: TOTAL MACHINES, FAILURE, NON FAILURE -->
+<div class="row g-3 mb-4">
+    <!-- Card 1: Total Machines -->
+    <div class="col-12 col-md-4">
+        <div class="stat-card h-100">
             <div class="stat-card-header">
-                <span class="stat-title">Total CNC Machines</span>
+                <span class="stat-title">Total Machines</span>
                 <div class="stat-icon icon-cyan">
                     <i class="bi bi-cpu-fill"></i>
                 </div>
             </div>
             <div class="stat-val">{{ total_machines }}</div>
-            <p class="stat-sub">Registered CNC assets in database</p>
+            <p class="stat-sub">Registered CNC Fleet</p>
         </div>
     </div>
 
-    <!-- Card 2: Healthy Machines -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card">
+    <!-- Card 2: Failure -->
+    <div class="col-12 col-md-4">
+        <div class="stat-card h-100 {% if failure_machines_count > 0 %}border-danger{% endif %}">
             <div class="stat-card-header">
-                <span class="stat-title">Healthy</span>
+                <span class="stat-title">Failure</span>
+                <div class="stat-icon icon-red">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+            </div>
+            <div class="stat-val {% if failure_machines_count > 0 %}text-danger{% endif %}">{{ failure_machines_count }}</div>
+            <p class="stat-sub">Failure predicted</p>
+        </div>
+    </div>
+
+    <!-- Card 3: Non Failure -->
+    <div class="col-12 col-md-4">
+        <div class="stat-card h-100">
+            <div class="stat-card-header">
+                <span class="stat-title">Non Failure</span>
                 <div class="stat-icon icon-green">
                     <i class="bi bi-check-circle-fill"></i>
                 </div>
             </div>
-            <div class="stat-val text-success">{{ healthy_machines }}</div>
-            <p class="stat-sub">Based on latest machine condition</p>
+            <div class="stat-val text-success">{{ non_failure_machines_count }}</div>
+            <p class="stat-sub">Operating normally</p>
         </div>
     </div>
+</div>
 
-    <!-- Card 3: At Risk -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card">
-            <div class="stat-card-header">
-                <span class="stat-title">At Risk</span>
-                <div class="stat-icon icon-amber">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                </div>
-            </div>
-            <div class="stat-val text-warning">{{ at_risk_machines }}</div>
-            <p class="stat-sub">Elevated sensor warning state</p>
-        </div>
+<!-- SINGLE INSPECTION ALERTS SECTION -->
+<div class="custom-card mb-4" id="alertsSection">
+    <div class="custom-card-header d-flex align-items-center justify-content-between py-2 px-3 bg-light">
+        <h3 class="custom-card-title fs-6 mb-0 d-flex align-items-center gap-2">
+            <i class="bi bi-bell-fill text-danger me-1"></i> Inspection Alerts
+        </h3>
+        <span class="badge {% if inspection_alerts %}bg-danger text-white{% else %}bg-success text-white{% endif %} font-monospace">
+            {{ inspection_alerts|length }} Alert{% if inspection_alerts|length != 1 %}s{% endif %}
+        </span>
     </div>
+    <div class="custom-card-body p-0">
+        {% if inspection_alerts %}
+            <div class="list-group list-group-flush">
+                {% for alert in inspection_alerts %}
+                    <div class="list-group-item d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 py-3 px-3">
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                            <span class="fw-bold font-monospace text-dark fs-6" style="min-width: 90px;">{{ alert.machine_code }}</span>
+                            
+                            <span class="d-inline-flex align-items-center gap-1 font-monospace small px-2 py-1 rounded border {% if alert.risk_level in ['High Risk', 'Critical'] or alert.is_overdue %}border-danger-subtle bg-danger-subtle text-danger-emphasis{% elif alert.risk_level in ['Medium Risk', 'At Risk'] %}border-warning-subtle bg-warning-subtle text-warning-emphasis{% else %}border-success-subtle bg-success-subtle text-success-emphasis{% endif %}">
+                                {% if alert.risk_level in ['High Risk', 'Critical'] or alert.is_overdue %}
+                                    <span class="text-danger">🔴</span> High Risk
+                                {% elif alert.risk_level in ['Medium Risk', 'At Risk'] %}
+                                    <span class="text-warning">🟡</span> Moderate Risk
+                                {% else %}
+                                    <span class="text-success">🟢</span> Healthy
+                                {% endif %}
+                            </span>
 
-    <!-- Card 4: Predicted Failures -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card">
-            <div class="stat-card-header">
-                <span class="stat-title">Predicted Failures</span>
-                <div class="stat-icon icon-red">
-                    <i class="bi bi-fire"></i>
-                </div>
+                            <span class="text-secondary small font-monospace">
+                                <strong>Next Inspection:</strong> 
+                                <span class="{% if alert.is_overdue %}text-danger fw-bold{% elif alert.is_due_today %}text-warning-emphasis fw-bold{% endif %}">
+                                    {{ alert.next_inspection_text }}
+                                </span>
+                            </span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2">
+                            <a href="{{ url_for('prediction.predict', machine_id=alert.id) }}" class="btn btn-sm btn-primary-industrial font-monospace text-nowrap">
+                                Inspect Machine <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
             </div>
-            <div class="stat-val text-danger">{{ predicted_failures }}</div>
-            <p class="stat-sub">Based on actual prediction history</p>
-        </div>
+        {% else %}
+            <div class="p-3 text-center text-muted small">
+                <i class="bi bi-shield-check text-success me-1"></i> No machine inspections scheduled for today. All machines are operating within expected schedules.
+            </div>
+        {% endif %}
     </div>
 </div>
 
@@ -196,7 +188,7 @@
 <div class="custom-card mb-0">
     <div class="custom-card-header">
         <h3 class="custom-card-title">
-            <i class="bi bi-clock-history text-primary"></i> Recent Predictions
+            <i class="bi bi-clock-history text-primary"></i> Recent Telemetry Inferences
         </h3>
         <a href="{{ url_for('machines.list_machines') }}" class="btn btn-sm btn-outline-secondary">
             View All History & Machines
@@ -245,7 +237,7 @@
                         </span>
                     </td>
                     <td class="text-end">
-                        <a href="{{ url_for('prediction.prediction_result', pred_id=p.id) }}" class="btn btn-sm btn-outline-primary py-1 px-3">
+                        <a href="{{ url_for('prediction.predict', machine_id=p.machine_id) }}" class="btn btn-sm btn-outline-primary py-1 px-3">
                             Inspect <i class="bi bi-chevron-right"></i>
                         </a>
                     </td>

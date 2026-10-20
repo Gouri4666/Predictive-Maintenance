@@ -22,11 +22,18 @@ def list_machines():
             return redirect(url_for('machines.list_machines'))
 
         modify_db(
-            "INSERT INTO machines (machine_code, machine_name, status) VALUES (%s, %s, 'Healthy')",
+            "INSERT INTO machines (machine_code, machine_name, status) VALUES (%s, %s, 'Not Evaluated')",
             (code, code)
         )
         flash(f"Machine '{code}' added successfully!", 'success')
         return redirect(url_for('machines.list_machines'))
+
+    # Update any machine with 0 prediction records to 'Not Evaluated' status
+    modify_db("""
+        UPDATE machines 
+        SET status = 'Not Evaluated' 
+        WHERE id NOT IN (SELECT DISTINCT machine_id FROM predictions)
+    """)
 
     machines = query_db("""
         SELECT m.id, m.machine_code, m.status, m.created_at,

@@ -37,7 +37,6 @@ def export_csv():
             m.machine_code,
             m.machine_name,
             m.location,
-            p.model_used,
             p.vibration_rms,
             p.temperature_motor,
             p.current_phase_avg,
@@ -60,7 +59,7 @@ def export_csv():
 
     # Headers
     writer.writerow([
-        "Inspection ID", "Machine Code", "Machine Name", "Location", "ML Model Used",
+        "Inspection ID", "Machine Code", "Machine Name", "Location",
         "Vibration RMS (mm/s)", "Motor Temp (°C)", "Phase Current (A)", "Pressure (bar)", "RPM",
         "Prediction Status", "Failure Probability (%)", "Risk Level", "Recommendation", "Timestamp"
     ])
@@ -71,7 +70,6 @@ def export_csv():
             r['machine_code'],
             r['machine_name'],
             r['location'],
-            r['model_used'],
             float(r['vibration_rms']),
             float(r['temperature_motor']),
             float(r['current_phase_avg']),

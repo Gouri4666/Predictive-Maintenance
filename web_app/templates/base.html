@@ -50,7 +50,7 @@
                     <span>CNC Machines</span>
                 </a>
 
-                <a href="{{ url_for('prediction.predict') }}" class="sidebar-link {% if request.endpoint in ['prediction.predict', 'prediction.prediction_result'] %}active{% endif %}">
+                <a href="{{ url_for('prediction.predict') }}" class="sidebar-link {% if request.endpoint == 'prediction.predict' %}active{% endif %}">
                     <i class="bi bi-lightning-charge-fill"></i>
                     <span>Failure Prediction</span>
                 </a>

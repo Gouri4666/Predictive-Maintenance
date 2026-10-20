@@ -41,7 +41,7 @@
 <div class="custom-card mb-4">
     <div class="custom-card-header">
         <h3 class="custom-card-title fs-6">
-            <i class="bi bi-funnel-fill text-primary"></i> Machine Filter & Fleet Search
+            <i class="bi bi-funnel-fill text-primary"></i> Machine Filter
         </h3>
         <span class="badge bg-light text-secondary border">
             {{ machines|length }} Machines · {{ all_predictions|length }} Total Logs
@@ -50,43 +50,16 @@
     <div class="custom-card-body p-3">
         <div class="row g-2 align-items-center">
             <!-- Dropdown Filter: Select Machine -->
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-8 col-lg-6">
                 <label for="machineFilterSelect" class="form-label small text-secondary fw-semibold mb-1">Filter by Machine:</label>
                 <select class="form-select font-monospace" id="machineFilterSelect">
-                    <option value="all">-- All Machines (Fleet Overview) --</option>
+                    <option value="all">-- All Machines --</option>
                     {% for m in machines %}
                         <option value="{{ m.machine_code }}" data-id="{{ m.id }}" {% if selected_machine_id == m.id %}selected{% endif %}>
-                            {{ m.machine_code }} ({{ m.status }} - {{ m.prediction_count }} logs)
+                            {{ m.machine_code }}{% if m.prediction_count > 0 and m.status != 'Not Evaluated' %} ({{ m.status }}){% endif %}
                         </option>
                     {% endfor %}
                 </select>
-            </div>
-
-            <!-- Status Filter -->
-            <div class="col-6 col-md-3">
-                <label for="statusFilterSelect" class="form-label small text-secondary fw-semibold mb-1">Machine Status:</label>
-                <select class="form-select" id="statusFilterSelect">
-                    <option value="all">All Statuses</option>
-                    <option value="Healthy">Healthy</option>
-                    <option value="At Risk">At Risk</option>
-                    <option value="Critical">Critical / Failure</option>
-                </select>
-            </div>
-
-            <!-- Search by ID -->
-            <div class="col-6 col-md-3">
-                <label for="searchMachineInput" class="form-label small text-secondary fw-semibold mb-1">Search Machine ID:</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control border-start-0" id="searchMachineInput" placeholder="e.g. CNC-001...">
-                </div>
-            </div>
-
-            <!-- Reset Button -->
-            <div class="col-12 col-md-2 d-flex align-items-end">
-                <button type="button" class="btn btn-outline-secondary w-100 mt-md-4" id="resetFiltersBtn">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
-                </button>
             </div>
         </div>
     </div>
@@ -118,12 +91,14 @@
                         <span class="badge bg-dark font-monospace px-3 py-2 fs-6">{{ m.machine_code }}</span>
                     </td>
                     <td>
-                        {% if m.status == 'Healthy' %}
+                        {% if m.prediction_count > 0 and m.status == 'Healthy' %}
                             <span class="badge-status badge-healthy"><i class="bi bi-check-circle-fill"></i> Healthy</span>
-                        {% elif m.status == 'At Risk' %}
+                        {% elif m.prediction_count > 0 and m.status == 'At Risk' %}
                             <span class="badge-status badge-atrisk"><i class="bi bi-exclamation-triangle-fill"></i> At Risk</span>
-                        {% else %}
+                        {% elif m.prediction_count > 0 and m.status == 'Critical' %}
                             <span class="badge-status badge-critical"><i class="bi bi-fire"></i> Critical</span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border">Not Evaluated</span>
                         {% endif %}
                     </td>
                     <td>
@@ -193,8 +168,7 @@
                                             <th>Pressure</th>
                                             <th>Spindle RPM</th>
                                             <th>Predicted Outcome</th>
-                                            <th>Probability</th>
-                                            <th class="text-end">Action</th>
+                                            <th class="text-end">Probability</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -211,13 +185,8 @@
                                                     {% if rec.prediction == 1 %}Likely to Fail{% else %}Normal{% endif %}
                                                 </span>
                                             </td>
-                                            <td class="font-monospace fw-bold {% if rec.risk_level == 'High Risk' %}text-danger{% elif rec.risk_level == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
+                                            <td class="text-end font-monospace fw-bold {% if rec.risk_level == 'High Risk' %}text-danger{% elif rec.risk_level == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
                                                 {{ rec.failure_probability }}%
-                                            </td>
-                                            <td class="text-end">
-                                                <a href="{{ url_for('prediction.prediction_result', pred_id=rec.id) }}" class="btn btn-xs btn-outline-secondary py-0 px-2" title="View Full Report">
-                                                    <i class="bi bi-eye"></i> View
-                                                </a>
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -249,106 +218,27 @@
     </div>
 </div>
 
-<!-- SECTION 2: UNIFIED MASTER PREDICTION HISTORY & TELEMETRY LOG -->
-<div class="custom-card mb-4" id="historySection">
-    <div class="custom-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div>
-            <h3 class="custom-card-title fs-6 mb-0">
-                <i class="bi bi-table text-primary"></i> Master Prediction History & Telemetry Analysis Log
-            </h3>
-            <span class="small text-muted" id="activeFilterBadge">Showing all machines</span>
-        </div>
-        <span class="badge bg-light text-secondary border" id="historyRecordsCount">
-            {{ all_predictions|length }} Total Records
-        </span>
-    </div>
-    <div class="table-responsive">
-        <table class="table custom-table mb-0" id="masterHistoryTable">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Machine ID</th>
-                    <th>Vibration RMS</th>
-                    <th>Motor Temp</th>
-                    <th>Phase Current</th>
-                    <th>Pressure</th>
-                    <th>Spindle RPM</th>
-                    <th>Failure Outcome</th>
-                    <th>Probability</th>
-                    <th class="text-end">Diagnostics</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in all_predictions %}
-                <tr class="history-item-row" data-code="{{ p.machine_code|lower }}" data-status="{{ p.risk_level }}">
-                    <td class="small text-muted">{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }}</td>
-                    <td>
-                        <span class="badge bg-dark font-monospace">{{ p.machine_code }}</span>
-                    </td>
-                    <td><span class="sensor-mono">{{ p.vibration_rms }}</span> <small class="text-muted">mm/s</small></td>
-                    <td><span class="sensor-mono">{{ p.temperature_motor }}</span> <small class="text-muted">°C</small></td>
-                    <td><span class="sensor-mono">{{ p.current_phase_avg }}</span> <small class="text-muted">A</small></td>
-                    <td><span class="sensor-mono">{{ p.pressure_level }}</span> <small class="text-muted">bar</small></td>
-                    <td><span class="sensor-mono">{{ p.rpm|round|int }}</span> <small class="text-muted">RPM</small></td>
-                    <td>
-                        <span class="badge {% if p.prediction == 1 %}bg-danger-subtle text-danger border-danger-subtle{% else %}bg-success-subtle text-success border-success-subtle{% endif %} border small">
-                            {% if p.prediction == 1 %}Likely to Fail{% else %}Normal{% endif %}
-                        </span>
-                    </td>
-                    <td class="font-monospace fw-bold {% if p.risk_level == 'High Risk' %}text-danger{% elif p.risk_level == 'Medium Risk' %}text-warning{% else %}text-success{% endif %}">
-                        {{ p.failure_probability }}%
-                    </td>
-                    <td class="text-end">
-                        <a href="{{ url_for('prediction.prediction_result', pred_id=p.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2" title="Inspect Full Diagnostic">
-                            <i class="bi bi-eye"></i> View Result
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr id="emptyHistoryRow">
-                    <td colspan="10" class="text-center py-5 text-muted">
-                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                        No telemetry or prediction logs found in the database.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    // Unified Filter Logic across Machines & History Table
+    // Machine Dropdown Filter & Auto-Expand Logic
     const machineSelect = document.getElementById('machineFilterSelect');
-    const statusSelect = document.getElementById('statusFilterSelect');
-    const searchInput = document.getElementById('searchMachineInput');
-    const resetBtn = document.getElementById('resetFiltersBtn');
-
     const machineRows = document.querySelectorAll('.machine-row');
-    const historyRows = document.querySelectorAll('.history-item-row');
-    const activeFilterBadge = document.getElementById('activeFilterBadge');
-    const historyCountBadge = document.getElementById('historyRecordsCount');
 
     function applyFilters() {
-        const selectedMachine = machineSelect.value.toLowerCase().trim();
-        const selectedStatus = statusSelect.value;
-        const searchQuery = searchInput.value.toLowerCase().trim();
+        const selectedMachine = machineSelect ? machineSelect.value.toLowerCase().trim() : 'all';
 
-        // 1. Filter Machine Fleet Table
         machineRows.forEach(row => {
             const code = row.getAttribute('data-code') || '';
-            const status = row.getAttribute('data-status') || '';
-            const collapseTarget = document.querySelector(row.querySelector('[data-bs-target]').getAttribute('data-bs-target'));
+            const collapseBtn = row.querySelector('[data-bs-target]');
+            const collapseTarget = collapseBtn ? document.querySelector(collapseBtn.getAttribute('data-bs-target')) : null;
 
             const matchesMachine = (selectedMachine === 'all' || code === selectedMachine);
-            const matchesStatus = (selectedStatus === 'all' || status === selectedStatus);
-            const matchesSearch = (!searchQuery || code.includes(searchQuery));
 
-            if (matchesMachine && matchesStatus && matchesSearch) {
+            if (matchesMachine) {
                 row.style.display = '';
-                // If a single machine is selected, automatically expand its history dropdown
+                // If a specific machine is selected, automatically expand its inline history dropdown
                 if (selectedMachine !== 'all' && collapseTarget && typeof bootstrap !== 'undefined') {
                     const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseTarget, { toggle: false });
                     bsCollapse.show();
@@ -361,54 +251,10 @@
                 }
             }
         });
-
-        // 2. Filter Master History Table
-        let visibleHistoryCount = 0;
-        historyRows.forEach(row => {
-            const code = row.getAttribute('data-code') || '';
-            const status = row.getAttribute('data-status') || '';
-
-            const matchesMachine = (selectedMachine === 'all' || code === selectedMachine);
-            const matchesSearch = (!searchQuery || code.includes(searchQuery));
-
-            let matchesStatus = true;
-            if (selectedStatus === 'Healthy' && status !== 'Low Risk') matchesStatus = false;
-            if (selectedStatus === 'At Risk' && status !== 'Medium Risk') matchesStatus = false;
-            if (selectedStatus === 'Critical' && status !== 'High Risk') matchesStatus = false;
-
-            if (matchesMachine && matchesSearch && matchesStatus) {
-                row.style.display = '';
-                visibleHistoryCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Update active badge text
-        if (selectedMachine !== 'all') {
-            activeFilterBadge.textContent = 'Filtered to Machine: ' + machineSelect.value;
-        } else if (searchQuery) {
-            activeFilterBadge.textContent = 'Search results for: "' + searchQuery + '"';
-        } else {
-            activeFilterBadge.textContent = 'Showing all machines';
-        }
-
-        if (historyCountBadge) {
-            historyCountBadge.textContent = visibleHistoryCount + ' Records';
-        }
     }
 
-    if (machineSelect) machineSelect.addEventListener('change', applyFilters);
-    if (statusSelect) statusSelect.addEventListener('change', applyFilters);
-    if (searchInput) searchInput.addEventListener('input', applyFilters);
-
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            if (machineSelect) machineSelect.value = 'all';
-            if (statusSelect) statusSelect.value = 'all';
-            if (searchInput) searchInput.value = '';
-            applyFilters();
-        });
+    if (machineSelect) {
+        machineSelect.addEventListener('change', applyFilters);
     }
 
     // Run on initial load if query parameter was set

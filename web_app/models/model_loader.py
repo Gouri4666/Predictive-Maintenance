@@ -31,13 +31,8 @@ class ModelLoader:
 
     @classmethod
     def get_model(cls, model_key=None):
-        """
-        Dynamically retrieve and cache the requested model.
-        Available keys: 'xgboost', 'random_forest', 'svm'
-        """
-        key = (model_key or Config.DEFAULT_MODEL).lower()
-        if key not in Config.MODELS_CONFIG:
-            key = Config.DEFAULT_MODEL
+        """Retrieve and cache the XGBoost model."""
+        key = 'xgboost'
 
         if key not in cls._loaded_models:
             model_info = Config.MODELS_CONFIG[key]
@@ -48,10 +43,10 @@ class ModelLoader:
                 model_path = model_info.get('fallback_path', model_path)
 
             if not os.path.exists(model_path):
-                raise FileNotFoundError(f"Trained model file not found for '{key}' at: {model_path}")
+                raise FileNotFoundError(f"Trained model file not found at: {model_path}")
 
             cls._loaded_models[key] = joblib.load(model_path)
-            print(f"[ModelLoader] Loaded '{key}' model from: {model_path}")
+            print(f"[ModelLoader] Loaded XGBoost model from: {model_path}")
 
         return cls._loaded_models[key], Config.MODELS_CONFIG[key]
 
@@ -61,12 +56,11 @@ class ModelLoader:
         Execute end-to-end inference pipeline:
         1. Form input DataFrame with the 5 sensor features
         2. Impute missing values with trained SimpleImputer
-        3. If SVM: Scale features with trained StandardScaler
-        4. Predict class (0 or 1) and exact failure probability
-        5. Map to risk level and maintenance recommendation
+        3. Predict class (0 or 1) and exact failure probability using XGBoost
+        4. Map to risk level
         """
-        imputer, scaler = cls.load_preprocessors()
-        model, model_info = cls.get_model(model_key)
+        imputer, _ = cls.load_preprocessors()
+        model, model_info = cls.get_model()
 
         # 1. Input DataFrame
         input_data = pd.DataFrame([{
@@ -81,12 +75,7 @@ class ModelLoader:
         imputed_array = imputer.transform(input_data)
         features_for_model = pd.DataFrame(imputed_array, columns=Config.SENSOR_FEATURES)
 
-        # 3. Scaling (Strictly if model requires it, e.g. SVM)
-        if model_info.get('requires_scaling', False):
-            scaled_array = scaler.transform(features_for_model)
-            features_for_model = pd.DataFrame(scaled_array, columns=Config.SENSOR_FEATURES)
-
-        # 4. Model Prediction & Probability
+        # 3. Model Prediction & Probability
         pred_class = int(model.predict(features_for_model)[0])
         prob_failure = float(model.predict_proba(features_for_model)[0, 1])
         prob_pct = round(prob_failure * 100, 2)

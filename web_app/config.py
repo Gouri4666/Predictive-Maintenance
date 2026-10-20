@@ -29,25 +29,11 @@ class Config:
     # Machine Learning Model Paths
     MODELS_CONFIG = {
         'xgboost': {
-            'name': 'XGBoost (SMOTE Champion)',
+            'name': 'XGBoost (SMOTE)',
             'path': os.path.join(MODELS_DIR, 'best_model', 'champion_model.pkl'),
             'fallback_path': os.path.join(MODELS_DIR, 'xgboost', 'xgboost_smote_model.pkl'),
             'requires_scaling': False,
-            'description': 'Extreme Gradient Boosted Trees with SMOTE balancing (Highest Recall 89.22%, Ultra-low latency)'
-        },
-        'random_forest': {
-            'name': 'Random Forest Classifier',
-            'path': os.path.join(MODELS_DIR, 'random_forest', 'random_forest_smote_model.pkl'),
-            'fallback_path': os.path.join(MODELS_DIR, 'random_forest', 'random_forest_model.pkl'),
-            'requires_scaling': False,
-            'description': 'Bagging Ensemble of 100 Decision Trees (Robust against sensor outliers, 85.03% Recall)'
-        },
-        'svm': {
-            'name': 'Support Vector Machine (RBF)',
-            'path': os.path.join(MODELS_DIR, 'svm', 'svm_smote_model.pkl'),
-            'fallback_path': os.path.join(MODELS_DIR, 'svm', 'svm_model.pkl'),
-            'requires_scaling': True,
-            'description': 'Non-linear Maximum Margin Classifier with RBF Kernel (Uses Standardized features, 89.22% Recall)'
+            'description': 'Extreme Gradient Boosted Trees trained on CNC telemetry dataset'
         }
     }
     
@@ -68,3 +54,14 @@ class Config:
         'pressure_level',
         'rpm'
     ]
+
+    # Configurable Risk-Based Inspection Intervals (in Days)
+    INSPECTION_INTERVALS = {
+        'Healthy': 15,          # Safe -> Inspect every 15 days
+        'Low Risk': 15,         # Low Risk -> Inspect every 15 days
+        'Medium Risk': 7,       # Moderate Risk -> Inspect every 7 days
+        'At Risk': 7,           # Moderate Risk -> Inspect every 7 days
+        'High Risk': 1,          # High Risk / Failure Risk -> Inspect within 1 day (24 hours)
+        'Critical': 1,           # Critical -> Inspect within 1 day (24 hours)
+        'Not Evaluated': 15      # Default uninspected -> Inspect within 15 days
+    }

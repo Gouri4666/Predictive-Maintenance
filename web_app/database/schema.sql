@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS machines (
     machine_name VARCHAR(150) NULL DEFAULT NULL,
     location VARCHAR(150) NULL DEFAULT '',
     description TEXT,
-    status VARCHAR(50) DEFAULT 'Healthy',
+    status VARCHAR(50) DEFAULT 'Not Evaluated',
+    last_inspection_at DATETIME NULL DEFAULT NULL,
+    next_inspection_due DATETIME NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -42,7 +44,6 @@ CREATE TABLE IF NOT EXISTS machines (
 CREATE TABLE IF NOT EXISTS predictions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     machine_id INT NOT NULL,
-    model_used VARCHAR(80) NOT NULL DEFAULT 'SMOTE-XGBoost',
     vibration_rms DECIMAL(8, 4) NOT NULL,
     temperature_motor DECIMAL(8, 4) NOT NULL,
     current_phase_avg DECIMAL(8, 4) NOT NULL,
@@ -57,6 +58,21 @@ CREATE TABLE IF NOT EXISTS predictions (
     INDEX idx_prediction (prediction),
     INDEX idx_risk_level (risk_level),
     INDEX idx_created_at (created_at),
+    FOREIGN KEY (machine_id) REFERENCES machines(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- 4. Table: inspections (Inspection Logs & Maintenance Verification History)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS inspections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    machine_id INT NOT NULL,
+    inspector_name VARCHAR(100) DEFAULT 'Operator',
+    previous_risk_level VARCHAR(50) DEFAULT 'Not Evaluated',
+    current_risk_level VARCHAR(50) DEFAULT 'Healthy',
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_insp_machine (machine_id),
     FOREIGN KEY (machine_id) REFERENCES machines(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

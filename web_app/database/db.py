@@ -63,6 +63,16 @@ def init_db():
                 except Exception as stmt_err:
                     print(f"[Database Warning] Statement warning/skip: {stmt_err}")
 
+            # Ensure columns last_inspection_at and next_inspection_due exist on machines table
+            try:
+                cur.execute("ALTER TABLE machines ADD COLUMN last_inspection_at DATETIME NULL DEFAULT NULL;")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE machines ADD COLUMN next_inspection_due DATETIME NULL DEFAULT NULL;")
+            except Exception:
+                pass
+
         print("[Database] Schema and initial seed data applied successfully.")
     finally:
         conn.close()
