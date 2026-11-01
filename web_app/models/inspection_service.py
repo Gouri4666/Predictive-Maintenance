@@ -76,12 +76,12 @@ def get_machine_inspection_info(machine):
         status_label = 'Due Today'
         alert_badge = 'danger' if risk in ('High Risk', 'Critical') else 'warning'
     elif is_due_soon:
-        next_inspection_text = next_due.strftime('%d %b %Y')
+        next_inspection_text = next_due.strftime('%d-%m-%Y')
         status_key = 'due_soon'
         status_label = 'Due Soon'
         alert_badge = 'warning'
     else:
-        next_inspection_text = next_due.strftime('%d %b %Y')
+        next_inspection_text = next_due.strftime('%d-%m-%Y')
         status_key = 'scheduled'
         status_label = 'Healthy'
         alert_badge = 'success'

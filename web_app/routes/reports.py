@@ -10,7 +10,7 @@ reports_bp = Blueprint('reports', __name__)
 @reports_bp.route('/reports')
 @login_required
 def reports_index():
-    return redirect(url_for('analytics.analytics_dashboard'))
+    return redirect(url_for('dashboard.index') + '#reports')
 
 @reports_bp.route('/reports/export/csv')
 @login_required
@@ -21,9 +21,11 @@ def export_csv():
     where_clauses = ["1=1"]
     params = []
 
-    if machine_id:
+    machine_meta = None
+    if machine_id and machine_id.isdigit():
         where_clauses.append("p.machine_id = %s")
         params.append(int(machine_id))
+        machine_meta = query_db("SELECT machine_code, machine_name FROM machines WHERE id = %s", (int(machine_id),), one=True)
 
     if risk_level:
         where_clauses.append("p.risk_level = %s")
@@ -79,11 +81,16 @@ def export_csv():
             float(r['failure_probability']),
             r['risk_level'],
             r['recommendation'],
-            r['created_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(r['created_at'], 'strftime') else str(r['created_at'])
+            r['created_at'].strftime('%d-%m-%Y %H:%M:%S') if hasattr(r['created_at'], 'strftime') else str(r['created_at'])
         ])
 
     csv_data = output.getvalue()
-    filename = f"CNC_Maintenance_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    if machine_meta:
+        clean_code = str(machine_meta['machine_code']).replace(' ', '_').replace('/', '_')
+        filename = f"CNC_Maintenance_Report_{clean_code}_{timestamp_str}.csv"
+    else:
+        filename = f"CNC_Complete_Fleet_Maintenance_Report_{timestamp_str}.csv"
 
     response = make_response(csv_data)
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
@@ -99,9 +106,11 @@ def print_report():
     where_clauses = ["1=1"]
     params = []
 
-    if machine_id:
+    machine_meta = None
+    if machine_id and machine_id.isdigit():
         where_clauses.append("p.machine_id = %s")
         params.append(int(machine_id))
+        machine_meta = query_db("SELECT * FROM machines WHERE id = %s", (int(machine_id),), one=True)
 
     if risk_level:
         where_clauses.append("p.risk_level = %s")
@@ -122,14 +131,10 @@ def print_report():
         LIMIT 100
     """, tuple(params))
 
-    machine_meta = None
-    if machine_id:
-        machine_meta = query_db("SELECT * FROM machines WHERE id = %s", (int(machine_id),), one=True)
-
     return render_template(
         'print_report.html',
         records=records,
-        generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        generated_at=datetime.now().strftime('%d-%m-%Y %H:%M:%S'),
         machine_meta=machine_meta,
         risk_filter=risk_level
     )

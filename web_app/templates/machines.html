@@ -16,7 +16,6 @@
         <h3 class="custom-card-title fs-6">
             <i class="bi bi-plus-circle-fill text-primary"></i> Register New CNC Machine
         </h3>
-        <span class="badge bg-light text-secondary border">Single Identifier Tracking</span>
     </div>
     <div class="custom-card-body p-3">
         <form method="POST" action="{{ url_for('machines.list_machines') }}" class="row g-2 align-items-center">
@@ -44,7 +43,7 @@
             <i class="bi bi-funnel-fill text-primary"></i> Machine Filter
         </h3>
         <span class="badge bg-light text-secondary border">
-            {{ machines|length }} Machines · {{ all_predictions|length }} Total Logs
+            {{ machines|length }} Machines 
         </span>
     </div>
     <div class="custom-card-body p-3">
@@ -71,7 +70,6 @@
         <h3 class="custom-card-title fs-6">
             <i class="bi bi-cpu-fill text-primary"></i> Registered CNC Machines
         </h3>
-        <span class="badge bg-light text-secondary border">{{ machines|length }} Registered Units</span>
     </div>
     <div class="table-responsive">
         <table class="table custom-table mb-0" id="machinesTable">
@@ -111,7 +109,7 @@
                                     {% if m.last_prediction == 1 %}Likely to Fail{% else %}Normal{% endif %}
                                 </span>
                             </div>
-                            <div class="small text-muted">{{ m.last_prediction_at.strftime('%Y-%m-%d %H:%M') if m.last_prediction_at else '' }}</div>
+                            <div class="small text-muted">{{ m.last_prediction_at.strftime('%d-%m-%Y %H:%M') if m.last_prediction_at else '' }}</div>
                         {% else %}
                             <span class="text-muted small">Not evaluated yet</span>
                         {% endif %}
@@ -174,7 +172,7 @@
                                     <tbody>
                                         {% for rec in predictions_by_machine[m.id] %}
                                         <tr>
-                                            <td class="small text-muted">{{ rec.created_at.strftime('%Y-%m-%d %H:%M') if rec.created_at else '' }}</td>
+                                            <td class="small text-muted">{{ rec.created_at.strftime('%d-%m-%Y %H:%M') if rec.created_at else '' }}</td>
                                             <td><span class="sensor-mono">{{ rec.vibration_rms }}</span> <small class="text-muted">mm/s</small></td>
                                             <td><span class="sensor-mono">{{ rec.temperature_motor }}</span> <small class="text-muted">°C</small></td>
                                             <td><span class="sensor-mono">{{ rec.current_phase_avg }}</span> <small class="text-muted">A</small></td>

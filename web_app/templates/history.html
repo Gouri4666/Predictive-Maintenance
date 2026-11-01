@@ -93,7 +93,7 @@
                     style="cursor: pointer;"
                     data-id="{{ p.id }}"
                     data-machine="{{ p.machine_code }}"
-                    data-date="{{ p.created_at.strftime('%d %B %Y, %H:%M') if p.created_at else '' }}"
+                    data-date="{{ p.created_at.strftime('%d-%m-%Y %H:%M') if p.created_at else '' }}"
                     data-pred="{{ p.prediction }}"
                     data-prob="{{ p.failure_probability }}"
                     data-risk="{{ p.risk_level }}"
@@ -104,7 +104,7 @@
                     data-rpm="{{ p.rpm|round|int }}"
                     data-rec="{{ p.recommendation }}">
                     <td>
-                        <span class="text-dark fw-medium">{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }}</span>
+                        <span class="text-dark fw-medium">{{ p.created_at.strftime('%d-%m-%Y %H:%M') if p.created_at else '' }}</span>
                     </td>
                     <td>
                         <span class="badge bg-dark font-monospace px-2 py-1 fs-6">{{ p.machine_code }}</span>
@@ -188,7 +188,7 @@
             <i class="bi bi-file-earmark-medical-fill text-primary"></i> 
             Prediction Details — <span id="detailMachineCode" class="font-monospace">{{ selected_record.machine_code if selected_record else '' }}</span>
         </h3>
-        <span class="text-secondary small" id="detailTimestamp">{{ selected_record.created_at.strftime('%d %B %Y, %H:%M') if selected_record and selected_record.created_at else '' }}</span>
+        <span class="text-secondary small" id="detailTimestamp">{{ selected_record.created_at.strftime('%d-%m-%Y %H:%M') if selected_record and selected_record.created_at else '' }}</span>
     </div>
     <div class="custom-card-body">
         <div class="row g-4">

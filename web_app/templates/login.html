@@ -331,8 +331,6 @@
                 </div>
                 <!-- Large heading -->
                 <h1 class="brand-heading">CNC Predictive Maintenance</h1>
-                <!-- Small subtitle -->
-                <p class="brand-subtitle">Machine Learning Project</p>
                 <!-- One short description -->
                 <p class="brand-desc">Predict machine failures before they occur.</p>
             </div>
@@ -342,21 +340,7 @@
         <main class="login-form-panel">
             <div class="login-card">
                 <!-- Heading -->
-
-                <!-- Small supporting text -->
-                <p class="form-subtext">Sign in to access the predictive maintenance dashboard.</p>
-
-                <!-- Flash Notification Messages -->
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="login-alert login-alert-{{ category }}" role="alert">
-                                <i class="bi bi-exclamation-circle"></i>
-                                <span>{{ message }}</span>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+                
 
                 <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}" id="loginForm">
                     <!-- Email / Username input -->

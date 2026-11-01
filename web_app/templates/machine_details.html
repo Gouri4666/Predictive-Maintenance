@@ -46,7 +46,7 @@
                 </div>
                 <div class="mb-3 pb-3 border-bottom">
                     <span class="text-secondary small d-block">Registration Date</span>
-                    <span class="fw-medium text-dark">{{ machine.created_at.strftime('%d %B %Y, %H:%M') if machine.created_at else '—' }}</span>
+                    <span class="fw-medium text-dark">{{ machine.created_at.strftime('%d-%m-%Y %H:%M') if machine.created_at else '—' }}</span>
                 </div>
                 <div class="mb-3 pb-3 border-bottom">
                     <span class="text-secondary small d-block">Current Condition Status</span>
@@ -70,7 +70,7 @@
                     <i class="bi bi-activity text-info"></i> Latest Prediction Diagnostic
                 </h3>
                 {% if predictions %}
-                    <span class="text-muted small">{{ predictions[0].created_at.strftime('%b %d, %Y %H:%M') }}</span>
+                    <span class="text-muted small">{{ predictions[0].created_at.strftime('%d-%m-%Y %H:%M') }}</span>
                 {% endif %}
             </div>
             <div class="custom-card-body">
@@ -189,7 +189,7 @@
             <tbody>
                 {% for p in predictions %}
                 <tr>
-                    <td>{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }}</td>
+                    <td>{{ p.created_at.strftime('%d-%m-%Y %H:%M') if p.created_at else '' }}</td>
                     <td><span class="sensor-mono">{{ p.vibration_rms }} mm/s</span></td>
                     <td><span class="sensor-mono">{{ p.temperature_motor }} °C</span></td>
                     <td><span class="sensor-mono">{{ p.current_phase_avg }} A</span></td>

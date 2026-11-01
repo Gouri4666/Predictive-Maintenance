@@ -8,6 +8,7 @@ analytics_bp = Blueprint('analytics', __name__)
 @analytics_bp.route('/analytics')
 @login_required
 def analytics_dashboard():
+    return redirect(url_for('dashboard.index') + '#analytics')
     # 1. Total Metrics
     totals = query_db("""
         SELECT 
